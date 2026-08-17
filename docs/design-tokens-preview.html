@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ATS Resume Analyzer · Design Tokens</title>
+<style>
+  :root {
+    --purple-500: #8B5CF6; --purple-600: #7C3AED;
+    --teal-500: #14B8A6; --teal-600: #0D9488;
+    --blue-500: #3B82F6; --blue-600: #2563EB;
+    --green-500: #22C55E; --green-600: #16A34A;
+    --red-500: #EF4444; --red-600: #DC2626;
+    --orange-500: #F97316; --pink-500: #EC4899;
+    --amber-500: #F59E0B; --cyan-500: #06B6D4;
+    --gray-800: #1F2937; --gray-700: #374151; --gray-600: #4B5563;
+    --gray-500: #6B7280; --gray-200: #E5E7EB; --gray-100: #F3F4F6;
+    --grad-brand: linear-gradient(135deg, #8B5CF6, #14B8A6);
+    --grad-heading: linear-gradient(90deg, #7C3AED, #0D9488);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    color: var(--gray-800);
+    background: linear-gradient(135deg, #FAF5FF, #EFF6FF, #F0FDFA);
+    background-attachment: fixed;
+    padding: 40px 24px 80px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  header { text-align: center; margin-bottom: 36px; }
+  header h1 {
+    font-size: 34px; font-weight: 700; margin: 0 0 8px;
+    background: var(--grad-heading); -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  header p { color: var(--gray-600); margin: 0; font-size: 14px; }
+  .glass {
+    background: rgba(255,255,255,.55); backdrop-filter: blur(16px);
+    border: 1px solid rgba(255,255,255,.7); border-radius: 20px;
+    box-shadow: 0 8px 32px rgba(31,38,135,.12);
+  }
+  section { margin-bottom: 28px; }
+  .section-title { font-size: 18px; font-weight: 600; margin: 0 0 14px; }
+  .card { padding: 22px; }
+  .swatch-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+  .swatch { border-radius: 12px; overflow: hidden; border: 1px solid rgba(0,0,0,.05); }
+  .swatch .chip { height: 62px; }
+  .swatch .meta { background: #fff; padding: 9px 11px; }
+  .swatch .name { font-weight: 600; font-size: 12px; }
+  .swatch .hex { color: var(--gray-600); font-size: 11px; font-family: ui-monospace, monospace; }
+  .brand-bar { height: 84px; border-radius: 14px; background: var(--grad-brand); margin-bottom: 14px; }
+  .type-row { display: flex; align-items: baseline; gap: 20px; padding: 9px 0; border-bottom: 1px dashed var(--gray-200); }
+  .type-row:last-child { border-bottom: 0; }
+  .type-row .label { width: 110px; color: var(--gray-500); font-size: 12px; font-family: ui-monospace, monospace; }
+  .radius-row { display: flex; gap: 14px; align-items: flex-end; }
+  .radius-box { width: 84px; height: 60px; background: var(--grad-brand); color: #fff; font-size: 11px; display: flex; align-items: flex-end; padding: 6px; }
+  .comp-row { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; }
+  .btn-primary { padding: 9px 18px; border: 0; border-radius: 12px; color: #fff; font-weight: 600; background: var(--grad-brand); box-shadow: 0 6px 18px rgba(139,92,246,.35); cursor: default; }
+  .btn-ghost { padding: 8px 16px; border-radius: 12px; border: 1px solid rgba(255,255,255,.9); background: rgba(255,255,255,.55); color: var(--gray-700); }
+  .input { padding: 9px 16px; border-radius: 12px; border: 1px solid rgba(0,0,0,.12); background: rgba(255,255,255,.6); color: var(--gray-700); }
+  .kpi { width: 210px; padding: 18px; border-radius: 16px; background: rgba(255,255,255,.55); backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,.7); box-shadow: 0 8px 32px rgba(31,38,135,.12); }
+  .kpi .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+  .kpi .icon { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; }
+  .kpi .delta { font-size: 12px; color: var(--green-600); }
+  .kpi .value { font-size: 24px; font-weight: 700; }
+  .kpi .label { font-size: 13px; color: var(--gray-600); }
+  .analytics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .a-head { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; }
+  .a-chart { background: rgba(255,255,255,.55); border: 1px solid rgba(255,255,255,.7); border-radius: 16px; padding: 16px; min-height: 120px; }
+  .a-chart.wide { grid-column: span 2; }
+  .a-chart h4 { margin: 0 0 10px; font-size: 15px; }
+  .bar { height: 8px; border-radius: 99px; background: var(--grad-brand); margin: 6px 0; }
+  .legend { display: flex; gap: 14px; font-size: 12px; color: var(--gray-600); }
+  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; }
+  .note { font-size: 12px; color: var(--gray-500); margin-top: 8px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>ATS Resume Analyzer · Design Tokens</h1>
+    <p>从 Figma 社区文件提取 · React + Tailwind v4 映射 · 浅色 + 毛玻璃</p>
+  </header>
+
+  <section>
+    <h2 class="section-title">品牌渐变</h2>
+    <div class="card">
+      <div class="brand-bar"></div>
+      <div class="note">linear-gradient(135deg, #8B5CF6, #14B8A6) —— 全站按钮 / 激活态 / 图表主视觉</div>
+    </div>
+  </section>
+
+  <section>
+    <h2 class="section-title">颜色变量</h2>
+    <div class="card">
+      <div class="swatch-grid" id="swatches"></div>
+    </div>
+  </section>
+
+  <section>
+    <h2 class="section-title">文字样式</h2>
+    <div class="card" id="types"></div>
+  </section>
+
+  <section>
+    <h2 class="section-title">圆角 / 间距</h2>
+    <div class="card">
+      <div class="radius-row">
+        <div class="radius-box" style="border-radius:8px">rounded-lg 8</div>
+        <div class="radius-box" style="border-radius:12px">rounded-xl 12</div>
+        <div class="radius-box" style="border-radius:16px">rounded-2xl 16</div>
+        <div class="radius-box" style="border-radius:999px">rounded-full</div>
+      </div>
+      <div class="note" style="margin-top:14px">间距基准 4px：gap-2=8 · gap-3=12 · gap-4=16 · gap-6 / p-6=24</div>
+    </div>
+  </section>
+
+  <section>
+    <h2 class="section-title">组件形态</h2>
+    <div class="card">
+      <div class="comp-row">
+        <button class="btn-primary">Export Report</button>
+        <button class="btn-ghost">Ghost</button>
+        <input class="input" placeholder="Search candidates…" />
+        <div class="kpi">
+          <div class="top"><div class="icon" style="background:linear-gradient(135deg,#8B5CF6,#EC4899)">S</div><span class="delta">+18%</span></div>
+          <div class="value">1,248</div>
+          <div class="label">Total Applications</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2 class="section-title">Analytics 页布局</h2>
+    <div class="card">
+      <div class="analytics">
+        <div class="a-head">
+          <div><strong style="font-size:22px;background:var(--grad-heading);-webkit-background-clip:text;background-clip:text;color:transparent">Analytics &amp; Reports</strong><div class="note">Comprehensive insights into your recruitment process.</div></div>
+          <button class="btn-primary">Export Report</button>
+        </div>
+        <div class="a-chart"><h4>Total Applications <span style="color:var(--green-600)">+15.3%</span></h4><div style="font-size:24px;font-weight:700">1,248</div></div>
+        <div class="a-chart"><h4>Average Score <span style="color:var(--green-600)">+2.5%</span></h4><div style="font-size:24px;font-weight:700">86%</div></div>
+        <div class="a-chart"><h4>Excellent Candidates <span style="color:var(--green-600)">+18%</span></h4><div style="font-size:24px;font-weight:700">312</div></div>
+        <div class="a-chart"><h4>Avg. Processing Time <span style="color:var(--red-600)">-0.5h</span></h4><div style="font-size:24px;font-weight:700">2.5h</div></div>
+        <div class="a-chart wide"><h4>Score Trends</h4><div class="bar" style="width:90%"></div><div class="bar" style="width:64%"></div><div class="bar" style="width:78%"></div><div class="bar" style="width:52%"></div></div>
+        <div class="a-chart wide"><h4>Most In-Demand Skills</h4><div class="bar" style="width:85%"></div><div class="bar" style="width:70%"></div><div class="bar" style="width:58%"></div><div class="bar" style="width:44%"></div></div>
+        <div class="a-chart wide"><h4>Performance Metrics</h4><div class="legend"><span><span class="dot" style="background:#8B5CF6"></span>Current</span><span><span class="dot" style="background:#14B8A6"></span>Benchmark</span></div><div class="bar" style="width:72%"></div><div class="bar" style="width:80%"></div></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="note" style="text-align:center">完整规范见 design-tokens.md · 来源：Figma 社区文件 1530261325896087183</div>
+</div>
+
+<script>
+  const swatches = [
+    ["Brand","#8B5CF6","purple-500"],["Brand","#7C3AED","purple-600"],["Brand","#14B8A6","teal-500"],["Brand","#0D9488","teal-600"],
+    ["Accent","#3B82F6","blue-500"],["Accent","#22C55E","green-500"],["Accent","#EF4444","red-500"],["Accent","#F97316","orange-500"],
+    ["Accent","#EC4899","pink-500"],["Accent","#F59E0B","amber-500"],["Accent","#06B6D4","cyan-500"],
+    ["Neutral","#1F2937","gray-800"],["Neutral","#374151","gray-700"],["Neutral","#4B5563","gray-600"],
+    ["Neutral","#6B7280","gray-500"],["Neutral","#E5E7EB","gray-200"],["Neutral","#F3F4F6","gray-100"]
+  ];
+  document.getElementById("swatches").innerHTML = swatches.map(([g,c,n]) => `
+    <div class="swatch"><div class="chip" style="background:${c}"></div>
+      <div class="meta"><div class="name">${n}</div><div class="hex">${c}</div></div></div>`).join("");
+
+  const types = [
+    ["text-xs","12px","标签 / 脚注 / 图例"],
+    ["text-sm","14px","次级说明 / KPI 标签"],
+    ["text-base","16px","正文默认"],
+    ["text-lg","18px","卡片标题"],
+    ["text-xl","20px","二级标题"],
+    ["text-2xl","24px","KPI 数值"],
+    ["text-3xl","30px","页面主标题"]
+  ];
+  document.getElementById("types").innerHTML = types.map(([c,px,use]) => `
+    <div class="type-row"><span class="label">${c} · ${px}</span><span style="font-size:${px}">${use}</span></div>`).join("");
+</script>
+</body>
+</html>

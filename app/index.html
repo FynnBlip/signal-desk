@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Signal Desk · 通话评测工作台</title>
+<style>
+  :root {
+    --grad-brand: linear-gradient(to right, #8B5CF6, #14B8A6);
+    --grad-heading: linear-gradient(to right, #7C3AED, #0D9488);
+    --purple-500: #8B5CF6; --purple-600: #7C3AED;
+    --teal-500: #14B8A6; --teal-600: #0D9488;
+    --gray-800: #1F2937; --gray-700: #374151; --gray-600: #4B5563;
+    --gray-500: #6B7280; --gray-400: #9CA3AF; --gray-200: #E5E7EB; --gray-100: #F3F4F6;
+    --ok: #16A34A; --ok-bg: #DCFCE7;
+    --bad: #DC2626; --bad-bg: #FEE2E2;
+    --info: #2563EB; --info-bg: #DBEAFE;
+    --glass: rgba(255,255,255,.58); --glass-border: rgba(255,255,255,.7); --glass-blur: 18px;
+    --r-sm: 8px; --r-md: 12px; --r-lg: 16px; --r-full: 9999px;
+    --shadow-card: 0 8px 32px rgba(31,38,135,.12);
+    --shadow-hover: 0 16px 40px rgba(31,38,135,.2);
+    --t-fast: 150ms; --t-base: 250ms; --t-slow: 400ms;
+    --ease-out: cubic-bezier(.2,0,0,1); --ease-io: cubic-bezier(.4,0,.2,1);
+    --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Microsoft YaHei", sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body { font-family: var(--font-sans); color: var(--gray-800); background: linear-gradient(to bottom right,#FAF5FF,#EFF6FF,#F0FDFA); min-height: 100vh; display: flex; overflow-x: hidden; }
+  .blob { position: fixed; border-radius: 50%; filter: blur(90px); opacity: .35; z-index: 0; pointer-events: none; }
+  .blob.b1 { width: 420px; height: 420px; background: #D8B4FE; top: -120px; left: 18%; animation: blob 7s infinite; }
+  .blob.b2 { width: 380px; height: 380px; background: #5EEAD4; bottom: -140px; right: 8%; animation: blob 7s infinite; animation-delay: 2s; }
+  .blob.b3 { width: 300px; height: 300px; background: #93C5FD; top: 40%; left: -100px; animation: blob 7s infinite; animation-delay: 4s; }
+
+  aside { width: 256px; flex-shrink: 0; background: rgba(255,255,255,.45); backdrop-filter: blur(var(--glass-blur)); -webkit-backdrop-filter: blur(var(--glass-blur)); border-right: 1px solid rgba(255,255,255,.6); box-shadow: 0 12px 40px rgba(31,38,135,.15); padding: 22px 16px; display: flex; flex-direction: column; gap: 6px; position: sticky; top: 0; height: 100vh; z-index: 2; }
+  .brand { display: flex; align-items: center; gap: 12px; padding: 4px 8px 20px; }
+  .brand .logo { width: 40px; height: 40px; border-radius: var(--r-md); background: var(--grad-brand); display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 600; font-size: 18px; }
+  .brand .t { font-size: 18px; font-weight: 600; } .brand .s { font-size: 12px; color: var(--gray-600); }
+  .nav-label { font-size: 11px; color: var(--gray-400); letter-spacing: .6px; padding: 12px 10px 4px; text-transform: uppercase; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--r-md); color: var(--gray-700); font-size: 14px; text-decoration: none; cursor: pointer; transition: transform var(--t-base) var(--ease-io), background var(--t-base) var(--ease-io), color var(--t-base) var(--ease-io); }
+  .nav-item:hover { background: rgba(255,255,255,.55); transform: translateX(4px); }
+  .nav-item.active { background: var(--grad-brand); color: #fff; transform: translateX(4px); font-weight: 500; }
+  .nav-item .num { font-size: 12px; opacity: .75; width: 20px; flex-shrink: 0; }
+  .aside-foot { margin-top: auto; padding: 14px 12px 4px; display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--gray-600); }
+  .dot-live { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 3px var(--ok-bg); }
+
+  main { flex: 1; position: relative; z-index: 1; padding: 36px 40px 60px; max-width: 1280px; margin: 0 auto; width: 100%; }
+  .page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 26px; }
+  h1 { font-size: 30px; font-weight: 600; letter-spacing: -.4px; background-image: var(--grad-heading); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .subtitle { color: var(--gray-600); font-size: 14px; margin-top: 4px; }
+  .chip-live { display: inline-flex; align-items: center; gap: 8px; background: var(--ok-bg); color: var(--ok); border-radius: var(--r-full); padding: 6px 14px; font-size: 13px; font-weight: 500; white-space: nowrap; }
+  .back { display: inline-flex; align-items: center; gap: 6px; background: #fff; border: 1px solid var(--gray-200); border-radius: var(--r-md); padding: 8px 14px; font-size: 13px; color: var(--gray-700); cursor: pointer; transition: all var(--t-fast) var(--ease-out); }
+  .back:hover { border-color: var(--purple-500); color: var(--purple-600); }
+  .head-actions { display: flex; align-items: center; gap: 8px; }
+
+  .kpis { display: grid; grid-template-columns: repeat(4,1fr); gap: 16px; margin-bottom: 22px; }
+  .kpi { background: var(--glass); backdrop-filter: blur(var(--glass-blur)); -webkit-backdrop-filter: blur(var(--glass-blur)); border: 1px solid var(--glass-border); border-radius: var(--r-lg); padding: 20px; box-shadow: var(--shadow-card); transition: transform 300ms var(--ease-io), box-shadow 300ms var(--ease-io); }
+  .kpi:hover { transform: translateY(-3px); box-shadow: var(--shadow-hover); }
+  .kpi .ico { width: 40px; height: 40px; border-radius: var(--r-md); display: flex; align-items: center; justify-content: center; font-size: 18px; margin-bottom: 12px; }
+  .kpi .val { font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .kpi .lab { font-size: 13px; color: var(--gray-600); margin-top: 2px; }
+  .i-purple { background: #EDE9FE; } .i-teal { background: #CCFBF1; } .i-blue { background: #DBEAFE; } .i-green { background: #DCFCE7; }
+
+  .cards { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; }
+  .card { background: var(--glass); backdrop-filter: blur(var(--glass-blur)); -webkit-backdrop-filter: blur(var(--glass-blur)); border: 1px solid var(--glass-border); border-radius: var(--r-lg); padding: 22px; box-shadow: var(--shadow-card); display: flex; flex-direction: column; gap: 12px; transition: transform 300ms var(--ease-io), box-shadow 300ms var(--ease-io); animation: fadeUp var(--t-slow) var(--ease-out) backwards; }
+  .card:hover { transform: translateY(-3px); box-shadow: var(--shadow-hover); }
+  .card.wide { grid-column: span 3; }
+  .card .top { display: flex; justify-content: space-between; align-items: center; }
+  .card .num { color: var(--gray-500); font-size: 12px; font-weight: 600; letter-spacing: .5px; }
+  .card h2 { font-size: 16px; margin-top: 2px; }
+  .card p { color: var(--gray-600); font-size: 13px; line-height: 1.55; }
+  .badge { font-size: 12px; padding: 4px 10px; border-radius: var(--r-full); font-weight: 500; white-space: nowrap; }
+  .badge.on { background: var(--ok-bg); color: var(--ok); } .badge.off { background: rgba(255,255,255,.6); color: var(--gray-500); border: 1px solid var(--gray-200); }
+
+  .items { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+  .item { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,.65); border: 1px solid rgba(255,255,255,.8); border-radius: var(--r-md); padding: 9px 12px; font-size: 13px; transition: transform var(--t-fast) var(--ease-out); }
+  .item:hover { transform: translateX(3px); }
+  .item .scene { background: #EDE9FE; color: var(--purple-600); border-radius: var(--r-full); padding: 2px 9px; font-size: 12px; font-weight: 500; white-space: nowrap; }
+  .item .text { flex: 1; } .item .covers { color: var(--gray-500); font-size: 12px; white-space: nowrap; }
+  .item .del { border: 0; background: none; color: var(--gray-400); font-size: 16px; cursor: pointer; padding: 0 4px; border-radius: 6px; transition: background var(--t-fast); }
+  .item .del:hover { background: #FEE2E2; color: #DC2626; }
+  .addrow { display: flex; gap: 10px; }
+  .addrow input, .field input, .field select { flex: 1; border: 1px solid rgba(255,255,255,.8); border-radius: var(--r-md); padding: 10px 14px; font-size: 13px; font-family: inherit; background: rgba(255,255,255,.65); color: var(--gray-700); transition: box-shadow var(--t-fast) var(--ease-out); }
+  .addrow input:focus, .field input:focus, .field select:focus { outline: none; box-shadow: 0 0 0 2px var(--purple-500); }
+  button { font-family: inherit; cursor: pointer; border: 0; transition: transform var(--t-fast) var(--ease-out), box-shadow var(--t-base) var(--ease-out), filter var(--t-fast); }
+  .btn-primary { padding: 10px 18px; border-radius: var(--r-md); color: #fff; font-size: 14px; background: var(--grad-brand); }
+  .btn-primary:hover { box-shadow: 0 10px 20px rgba(124,58,237,.35); } .btn-primary:active { transform: scale(.98); } .btn-primary:disabled { filter: grayscale(.4); cursor: wait; }
+  .btn-ghost { padding: 10px 16px; border-radius: var(--r-md); background: #fff; border: 1px solid var(--gray-200); color: var(--gray-700); font-size: 13px; }
+  .btn-ghost:hover { border-color: var(--purple-500); color: var(--purple-600); } .btn-ghost:active { transform: scale(.98); }
+  .result { display: none; background: rgba(237,233,254,.7); border-radius: var(--r-md); padding: 14px 16px; font-size: 13px; animation: fadeUp 250ms var(--ease-out); }
+  .result.show { display: block; } .result .count { font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .chip { background: #fff; border: 1px solid var(--gray-200); border-radius: var(--r-full); padding: 3px 11px; font-size: 12px; } .chip b { font-variant-numeric: tabular-nums; }
+  .muted-sm { color: var(--gray-500); font-size: 12px; }
+
+  /* 02 详情 */
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field label { font-size: 12px; color: var(--gray-600); font-weight: 500; }
+  .field select { flex: none; width: 140px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .panel { background: var(--glass); backdrop-filter: blur(var(--glass-blur)); -webkit-backdrop-filter: blur(var(--glass-blur)); border: 1px solid var(--glass-border); border-radius: var(--r-lg); padding: 20px; box-shadow: var(--shadow-card); margin-top: 16px; animation: fadeUp var(--t-slow) var(--ease-out); }
+  .panel h3 { font-size: 15px; margin-bottom: 12px; }
+  .suggest { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  .suggest .chip-big { background: #fff; border: 1px solid var(--gray-200); border-radius: var(--r-md); padding: 10px 16px; }
+  .suggest .chip-big b { font-size: 18px; font-variant-numeric: tabular-nums; display: block; }
+  .suggest .chip-big span { font-size: 11px; color: var(--gray-500); }
+  .warn { background: var(--bad-bg); color: var(--bad); border-radius: var(--r-md); padding: 10px 14px; font-size: 13px; }
+  .ok-hint { background: var(--ok-bg); color: var(--ok); border-radius: var(--r-md); padding: 10px 14px; font-size: 13px; }
+  svg.chart { width: 100%; height: 160px; display: block; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--gray-200); }
+  th { color: var(--gray-500); font-weight: 500; font-size: 12px; }
+  .matrix th, .matrix td { text-align: center; }
+  .matrix td.zero { color: var(--gray-400); }
+  .cluster-name { font-weight: 500; }
+  .rep { color: var(--gray-500); font-size: 12px; word-break: break-all; }
+
+  /* 03 TTS 音色库 */
+  .synth-form { display: flex; flex-direction: column; gap: 14px; }
+  .current-voice { display: inline-flex; align-items: center; gap: 10px; background: rgba(255,255,255,.7); border: 1px solid rgba(255,255,255,.9); border-radius: var(--r-md); padding: 10px 14px; min-height: 42px; font-size: 14px; color: var(--gray-700); }
+  .current-voice .placeholder { color: var(--gray-400); }
+  .current-voice .av { width: 28px; height: 28px; border-radius: 50%; background: var(--grad-brand); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; flex-shrink: 0; }
+  .voice-library { margin-top: 16px; }
+  .lib-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs { display: inline-flex; gap: 6px; background: rgba(255,255,255,.45); border: 1px solid rgba(255,255,255,.6); border-radius: var(--r-full); padding: 4px; }
+  .tab { padding: 6px 12px; border-radius: var(--r-full); font-size: 13px; color: var(--gray-600); background: transparent; }
+  .tab b { font-weight: 600; font-variant-numeric: tabular-nums; }
+  .tab.active { background: var(--grad-brand); color: #fff; }
+  .search input { min-width: 240px; border: 1px solid rgba(255,255,255,.8); border-radius: var(--r-full); padding: 8px 14px; font-size: 13px; background: rgba(255,255,255,.65); color: var(--gray-700); }
+  .search input:focus { outline: none; box-shadow: 0 0 0 2px var(--purple-500); }
+  .voice-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+  .voice-card { position: relative; background: var(--glass); backdrop-filter: blur(var(--glass-blur)); -webkit-backdrop-filter: blur(var(--glass-blur)); border: 1px solid var(--glass-border); border-radius: var(--r-lg); padding: 20px; box-shadow: var(--shadow-card); display: flex; flex-direction: column; gap: 10px; transition: transform var(--t-base) var(--ease-io), box-shadow var(--t-base) var(--ease-io), border-color var(--t-base); animation: fadeUp var(--t-slow) var(--ease-out) backwards; }
+  .voice-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-hover); }
+  .voice-card.selected { border-color: var(--purple-500); box-shadow: 0 0 0 2px rgba(139,92,246,.25), var(--shadow-card); }
+  .voice-top { display: flex; align-items: center; gap: 12px; padding-right: 52px; }
+  .voice-avatar { width: 44px; height: 44px; border-radius: 50%; background: var(--grad-brand); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 600; flex-shrink: 0; }
+  .voice-name { font-weight: 600; font-size: 15px; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .voice-desc { color: var(--gray-500); font-size: 12px; line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .voice-id { color: var(--gray-400); font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+  .voice-actions { display: flex; gap: 10px; margin-top: auto; }
+  .voice-actions .btn-sm { flex: 1; }
+  .btn-sm { padding: 6px 12px; border-radius: var(--r-md); font-size: 12px; border: 1px solid var(--gray-200); background: #fff; color: var(--gray-700); }
+  .btn-sm:hover { border-color: var(--purple-500); color: var(--purple-600); }
+  .btn-sm.primary { background: var(--grad-brand); color: #fff; border: 0; }
+  .btn-sm.primary:hover { box-shadow: 0 8px 16px rgba(124,58,237,.3); }
+  .btn-sm:disabled { filter: grayscale(.4); cursor: wait; }
+  .kind-badge { position: absolute; top: 16px; right: 16px; font-size: 11px; padding: 3px 8px; border-radius: var(--r-full); font-weight: 500; }
+  .kind-badge.system { background: #EDE9FE; color: var(--purple-600); }
+  .kind-badge.cloning { background: #CCFBF1; color: var(--teal-600); }
+  .kind-badge.generation { background: #DBEAFE; color: var(--info); }
+  .voice-audio { width: 100%; margin-top: 2px; }
+  .pager { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 16px; }
+  .pager-info { color: var(--gray-500); font-size: 13px; font-variant-numeric: tabular-nums; }
+  .pager .btn-sm { padding: 7px 14px; font-size: 13px; }
+  .pager button:disabled { opacity: .45; cursor: not-allowed; }
+  .sheet-mask { position: fixed; inset: 0; background: rgba(17,24,39,.35); backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px); z-index: 20; opacity: 0; pointer-events: none; transition: opacity var(--t-slow) var(--ease-out); }
+  .sheet { position: fixed; top: 0; right: 0; height: 100vh; width: min(1240px, 96vw); background: rgba(255,255,255,.82); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border-left: 1px solid var(--glass-border); box-shadow: -16px 0 48px rgba(31,38,135,.22); z-index: 21; transform: translateX(100%); transition: transform var(--t-slow) var(--ease-out); display: flex; flex-direction: column; padding: 24px; gap: 16px; }
+  .sheet.open { transform: translateX(0); }
+  .sheet-mask.open { opacity: 1; pointer-events: auto; }
+  .sheet-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .sheet-head h2 { font-size: 18px; margin-top: 2px; }
+  .sheet-close { width: 34px; height: 34px; border-radius: var(--r-md); background: #fff; border: 1px solid var(--gray-200); color: var(--gray-600); font-size: 18px; line-height: 1; flex-shrink: 0; }
+  .sheet-close:hover { border-color: var(--purple-500); color: var(--purple-600); }
+  .lb-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .lb-actions input { flex: 1; min-width: 240px; max-width: 100%; border: 1px solid rgba(255,255,255,.8); border-radius: var(--r-md); padding: 9px 12px; font-size: 13px; background: rgba(255,255,255,.65); color: var(--gray-700); }
+  .lb-actions input:focus { outline: none; box-shadow: 0 0 0 2px var(--purple-500); }
+  .lb-legend { background: rgba(237,233,254,.55); border: 1px solid rgba(255,255,255,.7); border-radius: var(--r-md); font-size: 12px; color: var(--gray-600); }
+  .lb-legend summary { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; cursor: pointer; padding: 9px 12px; list-style: none; }
+  .lb-legend summary::-webkit-details-marker { display: none; }
+  .lg-tag { background: var(--grad-brand); color: #fff; border-radius: var(--r-full); padding: 2px 9px; font-weight: 500; font-size: 11px; }
+  .lg-body { display: flex; flex-direction: column; gap: 6px; padding: 0 12px 10px; }
+  .lg-note { color: var(--gray-400); }
+  .lb-frame { flex: 1; width: 100%; min-height: 0; border: 1px solid var(--gray-200); border-radius: var(--r-md); background: #fff; }
+
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  @keyframes blob { 0%{transform:translate(0,0) scale(1);} 33%{transform:translate(30px,-50px) scale(1.1);} 66%{transform:translate(-20px,20px) scale(.9);} 100%{transform:translate(0,0) scale(1);} }
+  @media (min-width: 1600px) { main { max-width: 1520px; } }
+  @media (min-width: 1920px) { main { max-width: 1680px; } }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } html { scroll-behavior: auto; } }
+  @media (max-width: 1100px) { .kpis { grid-template-columns: repeat(2,1fr); } .cards { grid-template-columns: repeat(2,1fr); } .card.wide { grid-column: span 2; } .grid-2 { grid-template-columns: 1fr; } .voice-grid { grid-template-columns: repeat(2,1fr); } }
+  @media (max-width: 720px) { .voice-grid { grid-template-columns: 1fr; } .lib-head { flex-direction: column; align-items: stretch; } .search input { width: 100%; min-width: 0; } }
+</style>
+</head>
+<body>
+  <div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div>
+
+  <aside>
+    <div class="brand"><div class="logo">S</div><div><div class="t">Signal Desk</div><div class="s">通话评测工作台</div></div></div>
+    <div class="nav-label">工作台</div>
+    <a class="nav-item active" onclick="showView('overview')"><span class="num">◈</span>总览</a>
+    <div class="nav-label">七块蛋糕</div>
+    <a class="nav-item" onclick="showView('overview','m01')"><span class="num">01</span>语料生成</a>
+    <a class="nav-item" onclick="showView('voice')"><span class="num">02</span>音色聚类</a>
+    <a class="nav-item" onclick="showView('tts')"><span class="num">03</span>TTS 合成</a>
+    <a class="nav-item" onclick="showView('overview','m04')"><span class="num">04</span>信道仿真</a>
+    <a class="nav-item" onclick="showView('overview','m05')"><span class="num">05</span>降噪 DUT</a>
+    <a class="nav-item" onclick="showView('overview','m06')"><span class="num">06</span>评测</a>
+    <a class="nav-item" onclick="showView('overview','m07')"><span class="num">07</span>闭环大脑</a>
+    <div class="aside-foot"><span class="dot-live"></span>本地服务运行中 · 纯 CPU</div>
+  </aside>
+
+  <main>
+    <!-- 总览视图 -->
+    <div id="view-overview">
+      <div class="page-head">
+        <div><h1>通话评测工作台</h1><div class="subtitle">喂任意 wav 出真实 PQ 分 · 七模块串成双闭环 · 零 GPU 门槛</div></div>
+        <span class="chip-live">● 服务在线</span>
+      </div>
+      <div class="kpis">
+        <div class="kpi"><div class="ico i-purple">📝</div><div class="val" id="kpiCorpus">—</div><div class="lab">语料模板（条）</div></div>
+        <div class="kpi"><div class="ico i-teal">🧩</div><div class="val">2 / 7</div><div class="lab">模块已点亮</div></div>
+        <div class="kpi"><div class="ico i-blue">🎨</div><div class="val">3</div><div class="lab">设计/架构文档</div></div>
+        <div class="kpi"><div class="ico i-green">⚡</div><div class="val">CPU</div><div class="lab">运行环境 · 无 GPU</div></div>
+      </div>
+      <div class="cards">
+        <section class="card wide" id="m01" style="animation-delay:40ms">
+          <div class="top"><div><span class="num">01 · CORPUS</span><h2>语料生成</h2></div><span class="badge on">已点亮</span></div>
+          <p>推荐语料覆盖 z/zh、n/l、f/h、前后鼻音四类易混音对，可自定义增补。</p>
+          <ul class="items" id="items"></ul>
+          <div class="addrow"><input id="customInput" type="text" maxlength="60" placeholder="输入一条自定义语料，例如：帮我查一下明天的航班。"><button class="btn-ghost" onclick="addCustom()">添加</button></div>
+          <div style="display:flex;align-items:center;gap:12px;"><button class="btn-primary" id="genBtn" onclick="generate()">生成语料</button><span class="muted-sm">落盘 data/corpus/corpus.txt</span></div>
+          <div class="result" id="result"><div><span class="count" id="count">0</span> 条 · <span class="muted-sm" id="status"></span></div><div class="chips" id="chips"></div></div>
+        </section>
+        <section class="card" id="m02" style="animation-delay:80ms"><div class="top"><div><span class="num">02 · VOICE</span><h2>音色聚类</h2></div><span class="badge on">已点亮</span></div><p>声线特征 + 肘部法聚类 + 覆盖矩阵。点左侧「02 音色聚类」进入。</p></section>
+        <section class="card" id="m03" style="animation-delay:120ms"><div class="top"><div><span class="num">03 · TTS</span><h2>TTS 合成</h2></div><span class="badge on">已点亮</span></div><p>MiniMax 系统音色合成 exam wav，可试听。点左侧「03 TTS 合成」进入。</p></section>
+        <section class="card" id="m04" style="animation-delay:160ms"><div class="top"><div><span class="num">04 · CHANNEL</span><h2>信道仿真</h2></div><span class="badge off">待施工</span></div><p>加噪 / 采样率 / seed 锁死；进阶 IR、编解码、丢包、AGC。</p></section>
+        <section class="card" id="m05" style="animation-delay:200ms"><div class="top"><div><span class="num">05 · DENOISE</span><h2>降噪 DUT</h2></div><span class="badge off">待施工</span></div><p>GTCRN / DeepFilterNet3，version_spec 切换。</p></section>
+        <section class="card" id="m06" style="animation-delay:240ms"><div class="top"><div><span class="num">06 · EVALUATE</span><h2>评测</h2></div><span class="badge off">待施工</span></div><p>audiobox 出 PQ / PC / CE / CU，落盘 CSV。</p></section>
+        <section class="card" id="m07" style="animation-delay:280ms"><div class="top"><div><span class="num">07 · LOOP</span><h2>闭环大脑</h2></div><span class="badge off">待施工</span></div><p>归因 → 迭代 → 判定 → 金标人工验收。</p></section>
+      </div>
+    </div>
+
+    <!-- 02 音色聚类详情视图 -->
+    <div id="view-voice" hidden>
+      <div class="page-head">
+        <div><h1>音色聚类</h1><div class="subtitle">02 · VOICE · 声线特征提取 + KMeans + 覆盖矩阵</div></div>
+        <span class="back" onclick="showView('overview')">← 返回总览</span>
+      </div>
+      <div class="card">
+        <div class="top"><div><span class="num">配置</span><h2>聚类设置</h2></div><span class="badge on">可运行</span></div>
+        <div class="grid-2">
+          <div class="field"><label>音色样本目录</label><input id="vFolder" type="text" value="C:\Users\Administrator\Desktop\音源"></div>
+          <div class="field"><label>簇数 K（自动 = 肘部法 + 轮廓系数）</label>
+            <select id="vK">
+              <option value="auto" selected>自动建议</option>
+              <option value="2">2</option><option value="3">3</option><option value="4">4</option>
+              <option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;"><button class="btn-primary" id="vBtn" onclick="analyzeVoice()">开始聚类</button><span class="muted-sm">特征：F0 + F1/F2/F3 + MFCC · 落盘 data/voice/</span></div>
+      </div>
+      <div id="vResult"></div>
+    </div>
+
+    <!-- 03 TTS 合成详情视图 -->
+    <div id="view-tts" hidden>
+      <div class="page-head">
+        <div><h1>TTS 合成</h1><div class="subtitle">03 · TTS · MiniMax 音色库 · 选音色合成 exam wav</div></div>
+        <div class="head-actions">
+          <button class="btn-ghost" onclick="openLeaderboard()">TTS 榜单 ↗</button>
+          <span class="back" onclick="showView('overview')">← 返回总览</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="top"><div><span class="num">合成设置</span><h2>文本与音色</h2></div><span class="badge on">可运行</span></div>
+        <div class="synth-form">
+          <div class="field"><label>文本</label><input id="ttsText" type="text" value="喂，您好，请问有什么可以帮您？"></div>
+          <div class="field"><label>当前音色</label><div class="current-voice" id="currentVoice"><span class="placeholder">请从下方音色库选择</span></div></div>
+          <div style="display:flex;align-items:center;gap:12px;"><button class="btn-primary" id="ttsBtn" onclick="ttsSynth()">合成</button><span class="muted-sm">key 由后端从本机 .env 读取，前端不接触</span></div>
+        </div>
+      </div>
+
+      <div class="voice-library">
+        <div class="lib-head">
+          <div class="search"><input id="voiceSearch" type="text" placeholder="模糊搜索音色名称或 ID" oninput="onVoiceSearch()"></div>
+          <div class="tabs" id="voiceTabs">
+            <button class="tab active" data-kind="all" onclick="setVoiceKind('all')">全部 <b id="cntAll">0</b></button>
+            <button class="tab" data-kind="system" onclick="setVoiceKind('system')">系统 <b id="cntSystem">0</b></button>
+            <button class="tab" data-kind="cloning" onclick="setVoiceKind('cloning')">克隆 <b id="cntCloning">0</b></button>
+          </div>
+        </div>
+        <div class="voice-grid" id="voiceGrid"></div>
+        <div class="pager">
+          <button class="btn-sm" id="prevPage" onclick="changePage(-1)">‹ 上一页</button>
+          <span class="pager-info" id="pageInfo">—</span>
+          <button class="btn-sm" id="nextPage" onclick="changePage(1)">下一页 ›</button>
+        </div>
+      </div>
+
+      <div id="ttsResult"></div>
+    </div>
+  </main>
+
+  <div class="sheet-mask" id="lbMask" onclick="closeLeaderboard()"></div>
+  <div class="sheet" id="lbSheet">
+    <div class="sheet-head">
+      <div><span class="num">实时榜单</span><h2>TTS 实时榜单</h2></div>
+      <button class="sheet-close" onclick="closeLeaderboard()" title="关闭">×</button>
+    </div>
+    <details class="lb-legend">
+      <summary>
+        <span class="lg-tag">中文对照</span>
+        列名中文化 · 品牌/模型名保留原文
+      </summary>
+      <div class="lg-body">
+        <div>Rank 排名 · Range 区间 · Creator 厂商 · Model 模型 · Elo 评分 · 95% CI 置信区间 · Samples 样本数 · Arena Voices 音色数 · Released 发布 · API Pricing 定价</div>
+        <div class="lg-note">品牌/模型名（Qwen、MiniMax、Google 等）保留原文</div>
+      </div>
+    </details>
+    <div class="lb-actions">
+      <input id="lbUrl" type="text" placeholder="粘贴榜单网址">
+      <button class="btn-ghost" onclick="applyLeaderboard()">应用</button>
+      <button class="btn-ghost" onclick="openLeaderboardExternal()">新窗口打开 ↗</button>
+    </div>
+    <iframe id="lbFrame" class="lb-frame" referrerpolicy="no-referrer" translate="no" title="TTS 实时榜单"></iframe>
+  </div>
+
+<script>
+let items = [];
+let voices = [];
+let selectedVoiceId = null;
+let voiceKind = "all";
+let voicePage = 1;
+const VOICE_PAGE_SIZE = 12;
+const LB_DEFAULT = "https://artificialanalysis.ai/text-to-speech/leaderboard/provider-voice";
+function esc(s){ return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function showView(name, anchor){
+  document.getElementById("view-overview").hidden = name !== "overview";
+  document.getElementById("view-voice").hidden = name !== "voice";
+  document.getElementById("view-tts").hidden = name !== "tts";
+  document.querySelectorAll(".nav-item").forEach(a=>a.classList.remove("active"));
+  const key = name === "overview" ? "◈总览" : (name === "voice" ? "02音色聚类" : (name === "tts" ? "03TTS合成" : "◈总览"));
+  const navs = document.querySelectorAll(".nav-item");
+  navs.forEach(a=>{ const txt=a.textContent.trim().replace(/\s+/g,""); if(txt.startsWith(key)) a.classList.add("active"); });
+  if(name === "overview" && anchor){ const el=document.getElementById(anchor); if(el) el.scrollIntoView({behavior:"smooth"}); }
+}
+async function init(){
+  try{ const r=await fetch("/api/corpus/templates"); const d=await r.json(); items=d.templates.slice(0,4).map(t=>({...t})); document.getElementById("kpiCorpus").textContent=d.templates.length; }catch(e){ items=[]; }
+  initTts();
+  render();
+}
+
+/* ---------- 03 TTS ---------- */
+async function initTts(){
+  try{
+    const r=await fetch("/api/tts/voices"); const d=await r.json();
+    voices=d.voices||[];
+    voices.sort((a,b)=>((a.description?0:1)-(b.description?0:1)));
+    document.getElementById("cntAll").textContent=voices.length;
+    document.getElementById("cntSystem").textContent=voices.filter(v=>v.kind==="system").length;
+    document.getElementById("cntCloning").textContent=voices.filter(v=>v.kind==="cloning").length;
+    const first=voices.find(v=>v.kind==="system")||voices[0];
+    if(first) selectVoice(first.voice_id,false);
+    renderVoiceLibrary();
+  }catch(e){}
+}
+function setVoiceKind(k){
+  voiceKind=k;
+  voicePage=1;
+  document.querySelectorAll("#voiceTabs .tab").forEach(b=>b.classList.toggle("active",b.dataset.kind===k));
+  renderVoiceLibrary();
+}
+function onVoiceSearch(){
+  voicePage=1;
+  renderVoiceLibrary();
+}
+function changePage(d){
+  voicePage+=d;
+  renderVoiceLibrary();
+}
+function loadLeaderboard(){
+  const url=localStorage.getItem("ttsLeaderboardUrl")||LB_DEFAULT;
+  const input=document.getElementById("lbUrl");
+  const frame=document.getElementById("lbFrame");
+  if(input) input.value=url;
+  if(frame && frame.getAttribute("src")!==url) frame.src=url;
+}
+function applyLeaderboard(){
+  const input=document.getElementById("lbUrl");
+  const url=(input.value||"").trim();
+  if(!url) return;
+  localStorage.setItem("ttsLeaderboardUrl",url);
+  document.getElementById("lbFrame").src=url;
+}
+function openLeaderboard(){
+  loadLeaderboard();
+  document.getElementById("lbMask").classList.add("open");
+  document.getElementById("lbSheet").classList.add("open");
+  document.body.style.overflow="hidden";
+}
+function closeLeaderboard(){
+  document.getElementById("lbMask").classList.remove("open");
+  document.getElementById("lbSheet").classList.remove("open");
+  document.body.style.overflow="";
+}
+function openLeaderboardExternal(){
+  const url=(document.getElementById("lbUrl").value||LB_DEFAULT).trim();
+  window.open(url,"_blank","noopener");
+}
+function selectVoice(voice_id,scroll){
+  selectedVoiceId=voice_id;
+  const v=voices.find(x=>x.voice_id===voice_id);
+  const el=document.getElementById("currentVoice");
+  if(v){
+    el.innerHTML=`<span class="av">${esc((v.name||"音").trim().charAt(0))}</span><span>${esc(v.name)}</span><span class="muted-sm">${esc(v.voice_id)}</span>`;
+  }else{
+    el.innerHTML=`<span class="placeholder">请从下方音色库选择</span>`;
+  }
+  renderVoiceLibrary();
+  if(scroll) el.scrollIntoView({behavior:"smooth",block:"center"});
+}
+function renderVoiceLibrary(){
+  const q=(document.getElementById("voiceSearch").value||"").trim().toLowerCase();
+  const grid=document.getElementById("voiceGrid");
+  const list=voices.filter(v=>{
+    const okKind=voiceKind==="all"||v.kind===voiceKind;
+    const okQ=!q||(v.name||"").toLowerCase().includes(q)||(v.voice_id||"").toLowerCase().includes(q);
+    return okKind&&okQ;
+  });
+  const totalPages=Math.max(1,Math.ceil(list.length/VOICE_PAGE_SIZE));
+  if(voicePage>totalPages) voicePage=totalPages;
+  if(voicePage<1) voicePage=1;
+  const start=(voicePage-1)*VOICE_PAGE_SIZE;
+  const pageList=list.slice(start,start+VOICE_PAGE_SIZE);
+  const prev=document.getElementById("prevPage");
+  const next=document.getElementById("nextPage");
+  const info=document.getElementById("pageInfo");
+  if(info) info.textContent=`第 ${voicePage} / ${totalPages} 页 · 共 ${list.length} 个`;
+  if(prev) prev.disabled=voicePage<=1;
+  if(next) next.disabled=voicePage>=totalPages;
+  if(!pageList.length){ grid.innerHTML=`<div class="panel" style="margin-top:0;grid-column:1/-1">没有匹配的音色。</div>`; return; }
+  grid.innerHTML=pageList.map((v,i)=>{
+    const selected=v.voice_id===selectedVoiceId;
+    const kindLabel=v.kind==="cloning"?"克隆":(v.kind==="generation"?"生成":"系统");
+    return `<div class="voice-card ${selected?"selected":""}" style="animation-delay:${Math.min(i*12,240)}ms">
+      ${v.kind?`<span class="kind-badge ${esc(v.kind)}">${kindLabel}</span>`:""}
+      <div class="voice-top"><div class="voice-avatar">${esc((v.name||"音").trim().charAt(0))}</div><div class="voice-name" title="${esc(v.name)}">${esc(v.name)}</div></div>
+      <div class="voice-desc" title="${esc(v.description||"")}">${esc(v.description||"暂无描述")}</div>
+      <div class="voice-id" title="${esc(v.voice_id)}">${esc(v.voice_id)}</div>
+      <div class="voice-actions">
+        <button class="btn-sm ${selected?"primary":""}" onclick="selectVoice('${esc(v.voice_id)}',true)">${selected?"已选用":"选用"}</button>
+        <button class="btn-sm" onclick="previewVoice(this,'${esc(v.voice_id)}')">▶ 试听</button>
+      </div>
+    </div>`;
+  }).join("");
+}
+async function previewVoice(btn,voice_id){
+  btn.disabled=true; btn.textContent="合成中…";
+  try{
+    const r=await fetch("/api/tts/synthesize",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:"你好，这是音色试听。",voice_id})});
+    const d=await r.json();
+    if(d.status!=="ok") throw new Error(d.message||"试听失败");
+    const card=btn.closest(".voice-card");
+    let a=card.querySelector(".voice-audio");
+    if(!a){ a=document.createElement("audio"); a.className="voice-audio"; a.controls=true; card.appendChild(a); }
+    a.src="/api/tts/audio/"+encodeURIComponent(d.filename);
+    a.play().catch(()=>{});
+    btn.textContent="■ 停止";
+    btn.onclick=function(){ if(a.paused){ a.play(); btn.textContent="■ 停止"; } else { a.pause(); btn.textContent="▶ 试听"; } };
+  }catch(e){
+    btn.textContent="▶ 重试";
+  }finally{
+    btn.disabled=false;
+  }
+}
+async function ttsSynth(){
+  if(!selectedVoiceId){ document.getElementById("ttsResult").innerHTML=`<div class="panel"><div class="warn">请先从音色库选用一个音色。</div></div>`; return; }
+  const btn=document.getElementById("ttsBtn"); btn.disabled=true; btn.textContent="合成中…";
+  const text=document.getElementById("ttsText").value.trim();
+  if(!text){ document.getElementById("ttsResult").innerHTML=`<div class="panel"><div class="warn">文本不能为空。</div></div>`; btn.disabled=false; btn.textContent="合成"; return; }
+  try{
+    const r=await fetch("/api/tts/synthesize",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text,voice_id:selectedVoiceId})});
+    const d=await r.json();
+    if(d.status!=="ok"){ document.getElementById("ttsResult").innerHTML=`<div class="panel"><div class="warn">${esc(d.message||"失败")}</div></div>`; return; }
+    document.getElementById("ttsResult").innerHTML=`
+      <div class="panel"><h3>合成结果</h3>
+        <audio controls src="/api/tts/audio/${encodeURIComponent(d.filename)}" style="width:100%"></audio>
+        <p class="muted-sm" style="margin-top:10px">${esc(d.filename)} · ${(d.bytes/1024).toFixed(1)} KB · 落盘 data/tts/</p>
+      </div>`;
+  }catch(e){ document.getElementById("ttsResult").innerHTML=`<div class="panel"><div class="warn">调用失败：${esc(e.message)}</div></div>`; }
+  finally{ btn.disabled=false; btn.textContent="合成"; }
+}
+function render(){
+  const ul=document.getElementById("items"); ul.innerHTML="";
+  items.forEach((it,i)=>{ const li=document.createElement("li"); li.className="item";
+    li.innerHTML=`<span class="scene">${esc(it.scene)}</span><span class="text">${esc(it.text)}</span><span class="covers">${esc((it.covers||[]).join(" / "))}</span><button class="del" title="删除" onclick="removeItem(${i})">×</button>`;
+    ul.appendChild(li); });
+}
+function addCustom(){ const inp=document.getElementById("customInput"); const t=inp.value.trim(); if(!t) return; items.push({id:"CUST"+(items.length+1),scene:"自定义",text:t,covers:[]}); inp.value=""; render(); }
+function removeItem(i){ items.splice(i,1); render(); }
+async function generate(){
+  const btn=document.getElementById("genBtn"); btn.disabled=true; btn.textContent="生成中…";
+  try{ const r=await fetch("/api/corpus/generate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({items:items.map(({scene,text,covers})=>({scene,text,covers}))})});
+    const d=await r.json(); document.getElementById("count").textContent=d.count; document.getElementById("status").textContent=d.file.split(/[\\/]/).slice(-2).join("/");
+    const chips=document.getElementById("chips"); chips.innerHTML="";
+    for(const [p,n] of Object.entries(d.coverage)){ const s=document.createElement("span"); s.className="chip"; s.innerHTML=p+" · <b>"+n+"</b> 条"; chips.appendChild(s); }
+    document.getElementById("result").classList.add("show");
+  }catch(e){ alert("调用失败："+e.message); }finally{ btn.disabled=false; btn.textContent="生成语料"; }
+}
+
+/* ---------- 02 音色聚类 ---------- */
+async function analyzeVoice(){
+  const btn=document.getElementById("vBtn"); btn.disabled=true; btn.textContent="聚类中…";
+  const folder=document.getElementById("vFolder").value.trim();
+  const kSel=document.getElementById("vK").value; const k=kSel==="auto"?null:parseInt(kSel);
+  try{
+    const r=await fetch("/api/voice/analyze",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({folder,k})});
+    const d=await r.json();
+    if(d.status!=="ok"){ document.getElementById("vResult").innerHTML=`<div class="panel"><div class="warn">${esc(d.message||"失败")}</div></div>`; return; }
+    renderVoice(d);
+  }catch(e){ document.getElementById("vResult").innerHTML=`<div class="panel"><div class="warn">调用失败：${esc(e.message)}</div></div>`; }
+  finally{ btn.disabled=false; btn.textContent="开始聚类"; }
+}
+function renderVoice(d){
+  const s=d.suggestion||{};
+  const agree=(s.k_elbow===s.k_silhouette);
+  const hint=agree
+    ? `<div class="ok-hint">肘部法与轮廓系数一致：建议 K=${s.k_silhouette}，已采用。</div>`
+    : `<div class="warn">肘部建议 K=${s.k_elbow}，轮廓系数建议 K=${s.k_silhouette}（当前采用 ${d.n_clusters}）。两法不一致且轮廓系数偏低，说明样本声线重叠较多，建议手动调 K 或补充样本。</div>`;
+  document.getElementById("vResult").innerHTML=`
+    <div class="panel"><h3>建议簇数</h3>
+      <div class="suggest">
+        <div class="chip-big"><b>${s.k_elbow}</b><span>肘部法建议</span></div>
+        <div class="chip-big"><b>${s.k_silhouette}</b><span>轮廓系数建议</span></div>
+        <div class="chip-big"><b>${d.n_clusters}</b><span>本次采用 K</span></div>
+      </div>
+      <div style="margin-top:10px">${hint}</div>
+    </div>
+    <div class="panel"><h3>肘部曲线（Inertia 随 K）</h3>${curveSvg(s.curve)}</div>
+    <div class="panel"><h3>簇摘要（${d.n_valid} 个样本 · ${d.n_clusters} 簇）</h3>${clustersTable(d.clusters)}</div>
+    <div class="panel"><h3>覆盖矩阵（行 = F0 基频档 · 列 = F1 声道档）</h3>${matrixTable(d)}</div>`;
+}
+function curveSvg(curve){
+  if(!curve||!curve.length) return "";
+  const w=900,h=150,pad=30;
+  const ks=curve.map(c=>c.k);
+  const inert=curve.map(c=>c.inertia);
+  const imin=Math.min(...inert),imax=Math.max(...inert);
+  const x=k=>pad+(k-ks[0])/(ks[ks.length-1]-ks[0])*(w-2*pad);
+  const yi=v=>h-pad-(v-imin)/(imax-imin+1e-9)*(h-2*pad);
+  let pts=curve.map(c=>`${x(c.k)},${yi(c.inertia)}`).join(" ");
+  const elb=curve.find(c=>c.k===((window.__elbowK))); // 占位，不用
+  return `<svg class="chart" viewBox="0 0 ${w} ${h}">
+    <line x1="${pad}" y1="${h-pad}" x2="${w-pad}" y2="${h-pad}" stroke="#E5E7EB"/>
+    <line x1="${pad}" y1="${pad}" x2="${pad}" y2="${h-pad}" stroke="#E5E7EB"/>
+    <polyline points="${pts}" fill="none" stroke="#8B5CF6" stroke-width="2.5"/>
+    ${curve.map(c=>`<circle cx="${x(c.k)}" cy="${yi(c.inertia)}" r="4" fill="#8B5CF6"><title>K=${c.k} · inertia ${c.inertia}</title></circle>`).join("")}
+    ${curve.map(c=>`<text x="${x(c.k)}" y="${h-pad+16}" font-size="11" fill="#6B7280" text-anchor="middle">${c.k}</text>`).join("")}
+  </svg>`;
+}
+function clustersTable(clusters){
+  let rows=clusters.map(c=>`<tr>
+    <td><b>${esc(c.name)}</b></td><td>${c.count}</td><td>${c.f0_min}~${c.f0_max} Hz</td>
+    <td><div>${esc(c.representative)}</div></td></tr>`).join("");
+  return `<table><thead><tr><th>簇（客观命名）</th><th>样本数</th><th>F0 范围</th><th>代表样本</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+function matrixTable(d){
+  const m=d.coverage_matrix, fb=d.f0_bins, f1b=d.f1_bins;
+  const max=Math.max(1,...m.flat());
+  let head=`<tr><th>F0 \\ F1</th>${f1b.labels.map(l=>`<th>${l}<br><span style="font-weight:400">${f1b.names[f1b.labels.indexOf(l)]}</span></th>`).join("")}</tr>`;
+  let body=m.map((row,i)=>{
+    let cells=row.map(v=>{
+      const a=v/max; const bg=v>0?`background:rgba(139,92,246,${(0.12+a*0.7).toFixed(2)})`:"";
+      return `<td class="${v===0?'zero':''}" style="${bg}">${v}</td>`;
+    }).join("");
+    return `<tr><th>${fb.labels[i]}<br><span style="font-weight:400">${fb.names[i]}</span></th>${cells}</tr>`;
+  }).join("");
+  return `<table class="matrix"><thead>${head}</thead><tbody>${body}</tbody></table>
+    <p class="muted-sm" style="margin-top:8px">空格 = 该人群区间没有样本；颜色越深 = 样本越多。</p>`;
+}
+init();
+const initialView = new URLSearchParams(location.search).get("view");
+if (initialView === "voice" || initialView === "tts") showView(initialView);
+</script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+# 密钥与私密配置：永不上传
+.env
+
+# Python
+__pycache__/
+*.pyc
+
+# 数据与模型产物：本地生成，不入仓库
+data/
+models/*.pt
+
+# 临时预览截图
+/tts_*.png
