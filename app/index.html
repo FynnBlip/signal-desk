@@ -191,7 +191,7 @@
     <a class="nav-item" onclick="showView('overview','m01')"><span class="num">01</span>语料生成</a>
     <a class="nav-item" onclick="showView('voice')"><span class="num">02</span>音色聚类</a>
     <a class="nav-item" onclick="showView('tts')"><span class="num">03</span>TTS 合成</a>
-    <a class="nav-item" onclick="showView('overview','m04')"><span class="num">04</span>信道仿真</a>
+    <a class="nav-item" onclick="showView('channel')"><span class="num">04</span>信道仿真</a>
     <a class="nav-item" onclick="showView('overview','m05')"><span class="num">05</span>降噪 DUT</a>
     <a class="nav-item" onclick="showView('overview','m06')"><span class="num">06</span>评测</a>
     <a class="nav-item" onclick="showView('overview','m07')"><span class="num">07</span>闭环大脑</a>
@@ -222,7 +222,7 @@
         </section>
         <section class="card" id="m02" style="animation-delay:80ms"><div class="top"><div><span class="num">02 · VOICE</span><h2>音色聚类</h2></div><span class="badge on">已点亮</span></div><p>声线特征 + 肘部法聚类 + 覆盖矩阵。点左侧「02 音色聚类」进入。</p></section>
         <section class="card" id="m03" style="animation-delay:120ms"><div class="top"><div><span class="num">03 · TTS</span><h2>TTS 合成</h2></div><span class="badge on">已点亮</span></div><p>MiniMax 系统音色合成 exam wav，可试听。点左侧「03 TTS 合成」进入。</p></section>
-        <section class="card" id="m04" style="animation-delay:160ms"><div class="top"><div><span class="num">04 · CHANNEL</span><h2>信道仿真</h2></div><span class="badge off">待施工</span></div><p>加噪 / 采样率 / seed 锁死；进阶 IR、编解码、丢包、AGC。</p></section>
+        <section class="card" id="m04" style="animation-delay:160ms"><div class="top"><div><span class="num">04 · CHANNEL</span><h2>信道仿真</h2></div><span class="badge on">已点亮</span></div><p>Opus 编解码闭环，覆盖 VoIP/OTT；噪声、丢包后续接入。</p></section>
         <section class="card" id="m05" style="animation-delay:200ms"><div class="top"><div><span class="num">05 · DENOISE</span><h2>降噪 DUT</h2></div><span class="badge off">待施工</span></div><p>GTCRN / DeepFilterNet3，version_spec 切换。</p></section>
         <section class="card" id="m06" style="animation-delay:240ms"><div class="top"><div><span class="num">06 · EVALUATE</span><h2>评测</h2></div><span class="badge off">待施工</span></div><p>audiobox 出 PQ / PC / CE / CU，落盘 CSV。</p></section>
         <section class="card" id="m07" style="animation-delay:280ms"><div class="top"><div><span class="num">07 · LOOP</span><h2>闭环大脑</h2></div><span class="badge off">待施工</span></div><p>归因 → 迭代 → 判定 → 金标人工验收。</p></section>
@@ -290,6 +290,25 @@
 
       <div id="ttsResult"></div>
     </div>
+
+    <!-- 04 信道仿真详情视图 -->
+    <div id="view-channel" hidden>
+      <div class="page-head">
+        <div><h1>信道仿真</h1><div class="subtitle">04 · CHANNEL · Opus 编解码闭环（VoIP/OTT）</div></div>
+        <span class="back" onclick="showView('overview')">← 返回总览</span>
+      </div>
+      <div class="card">
+        <div class="top"><div><span class="num">信道配方</span><h2>Opus 编解码</h2></div><span class="badge on">可运行</span></div>
+        <div class="grid-2">
+          <div class="field"><label>输入 wav（data/exam）</label><select id="chInput"></select></div>
+          <div class="field"><label>带宽档</label><select id="chBandwidth" onchange="onBandwidthChange()"></select></div>
+        </div>
+        <div class="field"><label>自动参数</label><div class="muted-sm" id="chAutoHint">码率按带宽自动锁定 · VBR</div></div>
+        <div class="field"><label>seed</label><input id="chSeed" type="number" value="42"></div>
+        <div style="display:flex;align-items:center;gap:12px;"><button class="btn-primary" id="chBtn" onclick="runChannel()">施加信道</button><span class="muted-sm">Opus 编解码 → degraded wav · 落盘 data/matrix/</span></div>
+      </div>
+      <div id="chResult"></div>
+    </div>
   </main>
 
   <div class="sheet-mask" id="lbMask" onclick="closeLeaderboard()"></div>
@@ -329,8 +348,9 @@ function showView(name, anchor){
   document.getElementById("view-overview").hidden = name !== "overview";
   document.getElementById("view-voice").hidden = name !== "voice";
   document.getElementById("view-tts").hidden = name !== "tts";
+  document.getElementById("view-channel").hidden = name !== "channel";
   document.querySelectorAll(".nav-item").forEach(a=>a.classList.remove("active"));
-  const key = name === "overview" ? "◈总览" : (name === "voice" ? "02音色聚类" : (name === "tts" ? "03TTS合成" : "◈总览"));
+  const key = name === "overview" ? "◈总览" : (name === "voice" ? "02音色聚类" : (name === "tts" ? "03TTS合成" : (name === "channel" ? "04信道仿真" : "◈总览")));
   const navs = document.querySelectorAll(".nav-item");
   navs.forEach(a=>{ const txt=a.textContent.trim().replace(/\s+/g,""); if(txt.startsWith(key)) a.classList.add("active"); });
   if(name === "overview" && anchor){ const el=document.getElementById(anchor); if(el) el.scrollIntoView({behavior:"smooth"}); }
@@ -338,6 +358,7 @@ function showView(name, anchor){
 async function init(){
   try{ const r=await fetch("/api/corpus/templates"); const d=await r.json(); items=d.templates.slice(0,4).map(t=>({...t})); document.getElementById("kpiCorpus").textContent=d.templates.length; }catch(e){ items=[]; }
   initTts();
+  initChannel();
   render();
 }
 
@@ -499,6 +520,60 @@ async function generate(){
   }catch(e){ alert("调用失败："+e.message); }finally{ btn.disabled=false; btn.textContent="生成语料"; }
 }
 
+/* ---------- 04 信道仿真 ---------- */
+let chPresets = [];
+let chInputs = [];
+async function initChannel(){
+  try{
+    const [p, i] = await Promise.all([
+      fetch("/api/channel/presets").then(r=>r.json()),
+      fetch("/api/channel/inputs").then(r=>r.json())
+    ]);
+    chPresets = p.presets || [];
+    chInputs = i.inputs || [];
+    renderChannelControls();
+  }catch(e){}
+}
+function renderChannelControls(){
+  const inp = document.getElementById("chInput");
+  inp.innerHTML = chInputs.map(x=>`<option value="${esc(x.path)}">${esc(x.name)}</option>`).join("");
+  const bw = document.getElementById("chBandwidth");
+  bw.innerHTML = chPresets.map(p=>`<option value="${esc(p.id)}" ${p.id==="wideband"?"selected":""}>${esc(p.label)}</option>`).join("");
+  onBandwidthChange();
+}
+function onBandwidthChange(){
+  const bw = document.getElementById("chBandwidth").value;
+  const preset = chPresets.find(p=>p.id===bw);
+  const hint = document.getElementById("chAutoHint");
+  if(hint && preset) hint.textContent=`码率自动锁定 ${preset.default_bitrate} kbps · VBR`;
+}
+async function runChannel(){
+  const btn = document.getElementById("chBtn"); btn.disabled=true; btn.textContent="施加中…";
+  const input_wav = document.getElementById("chInput").value;
+  const bandwidth = document.getElementById("chBandwidth").value;
+  const preset = chPresets.find(p=>p.id===bandwidth);
+  const bitrate_kbps = preset ? preset.default_bitrate : 16;
+  const cbr = false;
+  const seed = parseInt(document.getElementById("chSeed").value) || 42;
+  try{
+    const r = await fetch("/api/channel/run",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({input_wav,bandwidth,bitrate_kbps,cbr,seed})});
+    const d = await r.json();
+    if(d.status!=="ok"){ document.getElementById("chResult").innerHTML=`<div class="panel"><div class="warn">${esc(d.message||"失败")}</div></div>`; return; }
+    document.getElementById("chResult").innerHTML=`
+      <div class="panel"><h3>信道仿真结果</h3>
+        <div class="suggest">
+          <div class="chip-big"><b>${esc(d.bandwidth_label)}</b><span>带宽</span></div>
+          <div class="chip-big"><b>${d.bitrate_set_kbps} → ${d.bitrate_measured_kbps}</b><span>设定 / 实测 kbps</span></div>
+          <div class="chip-big"><b>${esc(d.vbr_cbr.toUpperCase())}</b><span>码控</span></div>
+          <div class="chip-big"><b>${d.seed}</b><span>seed</span></div>
+        </div>
+        <div style="margin-top:12px"><audio controls src="/api/channel/audio/${encodeURIComponent(d.filename)}" style="width:100%"></audio></div>
+        <p class="muted-sm" style="margin-top:8px">${esc(d.filename)} · 实测 ${d.bitrate_measured_kbps} kbps · 落盘 data/matrix/</p>
+      </div>`;
+  }catch(e){ document.getElementById("chResult").innerHTML=`<div class="panel"><div class="warn">调用失败：${esc(e.message)}</div></div>`; }
+  finally{ btn.disabled=false; btn.textContent="施加信道"; }
+}
+
 /* ---------- 02 音色聚类 ---------- */
 async function analyzeVoice(){
   const btn=document.getElementById("vBtn"); btn.disabled=true; btn.textContent="聚类中…";
@@ -571,7 +646,7 @@ function matrixTable(d){
 }
 init();
 const initialView = new URLSearchParams(location.search).get("view");
-if (initialView === "voice" || initialView === "tts") showView(initialView);
+if (initialView === "voice" || initialView === "tts" || initialView === "channel") showView(initialView);
 </script>
 </body>
 </html>

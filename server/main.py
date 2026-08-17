@@ -27,6 +27,7 @@ def _load_module(file_path: Path):
 corpus = _load_module(PROJECT_ROOT / "modules" / "01_corpus" / "corpus.py")
 voice = _load_module(PROJECT_ROOT / "modules" / "02_voice" / "voice.py")
 tts = _load_module(PROJECT_ROOT / "modules" / "03_tts" / "tts.py")
+channel = _load_module(PROJECT_ROOT / "modules" / "04_channel" / "channel.py")
 
 app = FastAPI(title="Signal Desk")
 
@@ -86,14 +87,51 @@ def tts_synthesize(payload: dict = Body(default={})):
     voice_id = payload.get("voice_id")
     if not text or not voice_id:
         return {"status": "error", "message": "text 和 voice_id 必填"}
-    return tts.synthesize(text, voice_id, output_dir=PROJECT_ROOT / "data" / "tts")
+    return tts.synthesize(text, voice_id, output_dir=PROJECT_ROOT / "data" / "exam")
 
 
 @app.get("/api/tts/audio/{filename}")
 def tts_audio(filename: str):
     """返回合成出的 wav，供前端试听。文件名只取 basename，防路径穿越。"""
     safe = Path(filename).name
-    f = PROJECT_ROOT / "data" / "tts" / safe
+    f = PROJECT_ROOT / "data" / "exam" / safe
+    if not f.exists():
+        return {"status": "error", "message": "file not found"}
+    return FileResponse(f, media_type="audio/wav")
+
+
+@app.get("/api/channel/presets")
+def channel_presets():
+    """第四块：Opus 带宽/码率预设。"""
+    return {"presets": channel.list_presets()}
+
+
+@app.get("/api/channel/inputs")
+def channel_inputs():
+    """第四块：data/exam/ 下可施加信道的干净 wav。"""
+    return {"inputs": channel.list_inputs()}
+
+
+@app.post("/api/channel/run")
+def channel_run(payload: dict = Body(default={})):
+    """第四块：对干净 wav 施加 Opus 编解码。"""
+    input_wav = payload.get("input_wav")
+    if not input_wav:
+        return {"status": "error", "message": "input_wav is required"}
+    return channel.encode_decode(
+        input_wav,
+        bandwidth=payload.get("bandwidth", "wideband"),
+        bitrate_kbps=int(payload.get("bitrate_kbps", 16)),
+        cbr=bool(payload.get("cbr", False)),
+        seed=int(payload.get("seed", 42)),
+    )
+
+
+@app.get("/api/channel/audio/{filename}")
+def channel_audio(filename: str):
+    """返回信道仿真产物 wav（data/matrix），供前端试听。"""
+    safe = Path(filename).name
+    f = PROJECT_ROOT / "data" / "matrix" / safe
     if not f.exists():
         return {"status": "error", "message": "file not found"}
     return FileResponse(f, media_type="audio/wav")

@@ -112,7 +112,7 @@ def synthesize(text, voice_id, output_dir=None):
     if not api_key or not group_id:
         return {"status": "error", "message": ".env 缺少 MINIMAX_API_KEY 或 MINIMAX_GROUP_ID"}
 
-    out_dir = Path(output_dir) if output_dir else PROJECT_ROOT / "data" / "tts"
+    out_dir = Path(output_dir) if output_dir else PROJECT_ROOT / "data" / "exam"
     out_dir.mkdir(parents=True, exist_ok=True)
 
     payload = {
