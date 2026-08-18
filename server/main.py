@@ -7,6 +7,7 @@
 """
 
 import importlib.util
+import threading
 from pathlib import Path
 
 from fastapi import Body, FastAPI
@@ -28,6 +29,8 @@ corpus = _load_module(PROJECT_ROOT / "modules" / "01_corpus" / "corpus.py")
 voice = _load_module(PROJECT_ROOT / "modules" / "02_voice" / "voice.py")
 tts = _load_module(PROJECT_ROOT / "modules" / "03_tts" / "tts.py")
 channel = _load_module(PROJECT_ROOT / "modules" / "04_channel" / "channel.py")
+denoise = _load_module(PROJECT_ROOT / "modules" / "05_denoise" / "denoise.py")
+evaluate = _load_module(PROJECT_ROOT / "modules" / "06_evaluate" / "evaluate.py")
 
 app = FastAPI(title="Signal Desk")
 
@@ -112,14 +115,31 @@ def channel_inputs():
     return {"inputs": channel.list_inputs()}
 
 
+@app.get("/api/channel/noise/scenes")
+def channel_noise_scenes():
+    """第四块：六个噪声场景清单（含预览）。"""
+    return {"scenes": channel.list_noise_scenes()}
+
+
+@app.get("/api/channel/noise/preview/{filename}")
+def channel_noise_preview(filename: str):
+    """返回噪声场景试听预览（data/noise/preview）。"""
+    safe = Path(filename).name
+    f = PROJECT_ROOT / "data" / "noise" / "preview" / safe
+    if not f.exists():
+        return {"status": "error", "message": "file not found"}
+    return FileResponse(f, media_type="audio/wav")
+
+
 @app.post("/api/channel/run")
 def channel_run(payload: dict = Body(default={})):
-    """第四块：对干净 wav 施加 Opus 编解码。"""
+    """第四块：对干净 wav 施加噪声 + Opus 编解码。"""
     input_wav = payload.get("input_wav")
     if not input_wav:
         return {"status": "error", "message": "input_wav is required"}
-    return channel.encode_decode(
+    return channel.run(
         input_wav,
+        noise_scenes=payload.get("noise_scenes"),
         bandwidth=payload.get("bandwidth", "wideband"),
         bitrate_kbps=int(payload.get("bitrate_kbps", 16)),
         cbr=bool(payload.get("cbr", False)),
@@ -135,6 +155,72 @@ def channel_audio(filename: str):
     if not f.exists():
         return {"status": "error", "message": "file not found"}
     return FileResponse(f, media_type="audio/wav")
+
+
+@app.get("/api/denoise/models")
+def denoise_models():
+    """第五块：可用降噪模型清单。"""
+    return {"models": denoise.list_models()}
+
+
+@app.get("/api/denoise/inputs")
+def denoise_inputs():
+    """第五块：data/matrix/ 下可降噪的 degraded wav。"""
+    return {"inputs": denoise.list_inputs()}
+
+
+@app.post("/api/denoise/run")
+def denoise_run(payload: dict = Body(default={})):
+    """第五块：对 degraded wav 跑指定降噪模型。"""
+    input_wav = payload.get("input_wav")
+    if not input_wav:
+        return {"status": "error", "message": "input_wav is required"}
+    return denoise.run(input_wav, model=payload.get("model", "gtcrn"))
+
+
+@app.get("/api/denoise/audio/{model}/{filename}")
+def denoise_audio(model: str, filename: str):
+    """返回降噪产物 wav（data/denoised/<model>），供前端试听。"""
+    allowed = set(denoise.MODEL_FILES.keys())
+    if model not in allowed:
+        return {"status": "error", "message": "unknown model"}
+    safe = Path(filename).name
+    f = PROJECT_ROOT / "data" / "denoised" / model / safe
+    if not f.exists():
+        return {"status": "error", "message": "file not found"}
+    return FileResponse(f, media_type="audio/wav")
+
+
+# 06 评测：后台线程 + 轮询
+EVAL_JOB = {"state": "idle", "progress": 0, "total": 0, "message": "", "result": None}
+
+
+@app.post("/api/evaluate/run")
+def evaluate_run(payload: dict = Body(default={})):
+    """第六块：启动「干净→退化→降噪」对比评测（后台跑）。"""
+    if EVAL_JOB.get("state") == "running":
+        return {"status": "error", "message": "评测进行中"}
+
+    def _cb(done, total, message=""):
+        percent = round(done / total * 100) if total else 0
+        EVAL_JOB.update(state="running", progress=percent, total=total, message=message)
+
+    def _worker():
+        EVAL_JOB.update(state="running", progress=0, total=0, message="准备评测…", result=None)
+        try:
+            result = evaluate.compare(progress_cb=_cb, batch_size=int(payload.get("batch_size", 4)))
+            EVAL_JOB.update(state="done", progress=100, result=result, message="完成")
+        except Exception as exc:
+            EVAL_JOB.update(state="error", progress=0, message=str(exc), result=None)
+
+    threading.Thread(target=_worker, daemon=True).start()
+    return {"status": "ok"}
+
+
+@app.get("/api/evaluate/status")
+def evaluate_status():
+    """第六块：返回评测任务状态。"""
+    return EVAL_JOB
 
 
 app.mount("/", StaticFiles(directory=str(PROJECT_ROOT / "app"), html=True), name="app")

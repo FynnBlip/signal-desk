@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
-"""04 信道仿真 —— Opus 编解码闭环（第一版）。
+"""04 信道仿真 —— 噪声注入 + Opus 编解码闭环。
 
-第一版只做 Opus 编解码 + 仅编解码对照，覆盖 VoIP/OTT 通话。
-噪声/增益、丢包/抖动/PLC 按 ADR-002 后续接入。
+信号链：干净 wav → 加噪（场景 / SNR）→ Opus 编解码 → degraded wav。
+噪声是"信道/环境"的一部分，落在 04；05 降噪只负责吃 degraded wav。
 
 数据红线：所有数字来自真实产物；码率记「设定 + 实测」两列；seed 落 CSV。
 """
@@ -12,11 +12,15 @@ import datetime
 import subprocess
 from pathlib import Path
 
+import librosa
+import numpy as np
 import soundfile as sf
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 MATRIX_DIR = PROJECT_ROOT / "data" / "matrix"
 EXAM_DIR = PROJECT_ROOT / "data" / "exam"
+NOISE_DIR = PROJECT_ROOT / "data" / "noise"
+PREVIEW_DIR = NOISE_DIR / "preview"
 
 BANDWIDTHS = {
     "narrowband": {"label": "窄带 8k", "sample_rate": 8000, "bitrate_min": 8, "bitrate_max": 12, "default_bitrate": 12},
@@ -27,6 +31,16 @@ BANDWIDTHS = {
 DEFAULT_BANDWIDTH = "wideband"
 DEFAULT_BITRATE = 16
 DEFAULT_SEED = 42
+
+# 六个噪声场景（DEMAND），地铁用 90dB 实验室档
+NOISE_SCENES = [
+    {"id": "NPARK", "label": "安静 · 公园", "snr_db": 25, "level_db": 45, "dir": "demand/NPARK", "preview": "NPARK_20s.wav"},
+    {"id": "OOFFICE", "label": "办公室", "snr_db": 15, "level_db": 55, "dir": "demand/OOFFICE", "preview": "OOFFICE_20s.wav"},
+    {"id": "PCAFETER", "label": "咖啡厅", "snr_db": 10, "level_db": 70, "dir": "demand/PCAFETER", "preview": "PCAFETER_20s.wav"},
+    {"id": "PRESTO", "label": "食堂", "snr_db": 5, "level_db": 72, "dir": "demand/PRESTO", "preview": "PRESTO_20s.wav"},
+    {"id": "STRAFFIC", "label": "路口 · 交通", "snr_db": 0, "level_db": 75, "dir": "demand/STRAFFIC", "preview": "STRAFFIC_20s.wav"},
+    {"id": "TMETRO", "label": "地铁 · 90dB", "snr_db": -10, "level_db": 90, "dir": "demand/TMETRO", "preview": "TMETRO_20s.wav"},
+]
 
 
 def _ffmpeg_exe():
@@ -58,6 +72,16 @@ def list_inputs():
     return [{"name": p.name, "path": str(p)} for p in sorted(EXAM_DIR.glob("*.wav"))]
 
 
+def list_noise_scenes():
+    """返回六个噪声场景清单（含试听预览是否就绪）。"""
+    scenes = []
+    for s in NOISE_SCENES:
+        item = dict(s)
+        item["preview_ready"] = (PREVIEW_DIR / s["preview"]).exists()
+        scenes.append(item)
+    return scenes
+
+
 def _run(cmd):
     flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
     proc = subprocess.run(cmd, capture_output=True, text=True, creationflags=flags)
@@ -66,11 +90,55 @@ def _run(cmd):
     return proc
 
 
-def encode_decode(input_wav, bandwidth=DEFAULT_BANDWIDTH, bitrate_kbps=DEFAULT_BITRATE, cbr=False, output_dir=None, seed=DEFAULT_SEED):
-    """对单个干净 wav 做 Opus 编解码，返回 degraded（当前为 codec-only）产物与实测码率。"""
+def _mix_noise(clean_path, scene, out_path, seed):
+    """把场景噪声按 SNR 混入干净 wav，写到 out_path（保持输入采样率）。"""
+    audio, sr = sf.read(str(clean_path), dtype="float32")
+    if audio.ndim > 1:
+        audio = audio.mean(axis=1)
+
+    noise_dir = NOISE_DIR / scene["dir"]
+    segments = []
+    for seg_file in sorted(noise_dir.glob("*.wav")):
+        seg, seg_sr = sf.read(str(seg_file), dtype="float32")
+        if seg.ndim > 1:
+            seg = seg.mean(axis=1)
+        if seg_sr != sr:
+            seg = librosa.resample(seg, orig_sr=seg_sr, target_sr=sr)
+        segments.append(seg)
+    if not segments:
+        raise ValueError(f"噪声目录没有 wav：{noise_dir}")
+
+    # 逐段 RMS 归一化：DEMAND 各段功率差异大，不归一化会让设定 SNR 失真
+    rms = [float(np.sqrt(np.mean(s**2))) or 1e-12 for s in segments]
+    target_rms = float(np.median(rms))
+    segments = [s * (target_rms / r) for s, r in zip(segments, rms)]
+    noise = np.concatenate(segments)
+
+    n = len(audio)
+    if len(noise) < n:
+        noise = np.tile(noise, int(np.ceil(n / len(noise))))[:n]
+    else:
+        rng = np.random.default_rng(seed)
+        start = int(rng.integers(0, len(noise) - n + 1))
+        noise = noise[start : start + n]
+
+    signal_power = float(np.mean(audio**2)) or 1e-12
+    noise_power = signal_power / (10 ** (scene["snr_db"] / 10))
+    noise_data_power = float(np.mean(noise**2)) or 1e-12
+    scale = np.sqrt(noise_power / noise_data_power)
+    noisy = audio + noise * scale
+
+    Path(out_path).parent.mkdir(parents=True, exist_ok=True)
+    sf.write(str(out_path), noisy, sr)
+    return sr
+
+
+def encode_decode(input_wav, bandwidth=DEFAULT_BANDWIDTH, bitrate_kbps=DEFAULT_BITRATE, cbr=False, output_dir=None, seed=DEFAULT_SEED, noise_meta=None, reference=None):
+    """对单个 wav 做 Opus 编解码，返回 degraded（codec-only 或 noise+codec）产物与实测码率。"""
     input_wav = Path(input_wav)
     if not input_wav.exists():
         return {"status": "error", "message": f"输入 wav 不存在：{input_wav}"}
+    ref_path = Path(reference) if reference else input_wav
 
     bw = BANDWIDTHS.get(bandwidth)
     if not bw:
@@ -92,7 +160,10 @@ def encode_decode(input_wav, bandwidth=DEFAULT_BANDWIDTH, bitrate_kbps=DEFAULT_B
         return {"status": "error", "message": f"读取输入 wav 失败：{exc}"}
 
     ff = _ffmpeg_exe()
-    tag = f"{input_wav.stem}__opus_{bandwidth}_{bitrate_kbps}k_{'cbr' if cbr else 'vbr'}_seed{seed}"
+    noise_tag = ""
+    if noise_meta:
+        noise_tag = f"{noise_meta['id']}_snr{noise_meta['snr_db']}dB_"
+    tag = f"{input_wav.stem}__{noise_tag}opus_{bandwidth}_{bitrate_kbps}k_{'cbr' if cbr else 'vbr'}_seed{seed}"
     opus_path = out_dir / f"{tag}.opus"
     wav_path = out_dir / f"{tag}.wav"
 
@@ -121,8 +192,12 @@ def encode_decode(input_wav, bandwidth=DEFAULT_BANDWIDTH, bitrate_kbps=DEFAULT_B
 
     row = {
         "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "reference": str(input_wav),
+        "reference": str(ref_path),
         "degraded": str(wav_path),
+        "noise_scene": noise_meta["id"] if noise_meta else "",
+        "noise_label": noise_meta["label"] if noise_meta else "无噪声",
+        "snr_db": noise_meta["snr_db"] if noise_meta else "",
+        "level_db": noise_meta["level_db"] if noise_meta else "",
         "codec": "opus",
         "bandwidth": bandwidth,
         "bandwidth_label": bw["label"],
@@ -134,7 +209,7 @@ def encode_decode(input_wav, bandwidth=DEFAULT_BANDWIDTH, bitrate_kbps=DEFAULT_B
         "opus_sr": bw["sample_rate"],
         "duration_s": round(duration, 3),
         "opus_bytes": opus_bytes,
-        "mode": "codec_only",
+        "mode": "noise_codec" if noise_meta else "codec_only",
     }
 
     csv_path = out_dir / "channel_runs.csv"
@@ -147,10 +222,14 @@ def encode_decode(input_wav, bandwidth=DEFAULT_BANDWIDTH, bitrate_kbps=DEFAULT_B
 
     return {
         "status": "ok",
-        "reference": str(input_wav),
+        "reference": str(ref_path),
         "degraded": str(wav_path),
         "filename": wav_path.name,
         "opus_filename": opus_path.name,
+        "noise_scene": noise_meta["id"] if noise_meta else "",
+        "noise_label": noise_meta["label"] if noise_meta else "无噪声",
+        "snr_db": noise_meta["snr_db"] if noise_meta else None,
+        "level_db": noise_meta["level_db"] if noise_meta else None,
         "bandwidth": bandwidth,
         "bandwidth_label": bw["label"],
         "bitrate_set_kbps": bitrate_kbps,
@@ -159,4 +238,62 @@ def encode_decode(input_wav, bandwidth=DEFAULT_BANDWIDTH, bitrate_kbps=DEFAULT_B
         "seed": seed,
         "duration_s": round(duration, 3),
         "csv": str(csv_path),
+    }
+
+
+def run(input_wav, noise_scenes=None, bandwidth=DEFAULT_BANDWIDTH, bitrate_kbps=DEFAULT_BITRATE, cbr=False, seed=DEFAULT_SEED):
+    """按选中的噪声场景批量施加「噪声 + 编解码」，每个场景一条 degraded wav。"""
+    input_wav = Path(input_wav)
+    if not input_wav.exists():
+        return {"status": "error", "message": f"输入 wav 不存在：{input_wav}"}
+
+    bw = BANDWIDTHS.get(bandwidth)
+    if not bw:
+        return {"status": "error", "message": f"未知带宽档：{bandwidth}"}
+
+    scenes = []
+    for sid in (noise_scenes or []):
+        scene = next((s for s in NOISE_SCENES if s["id"] == sid), None)
+        if scene:
+            scenes.append(scene)
+    if not scenes:
+        scenes = [None]
+
+    tmp_dir = MATRIX_DIR / ".tmp_noisy"
+    tmp_dir.mkdir(parents=True, exist_ok=True)
+
+    runs = []
+    for scene in scenes:
+        codec_in = input_wav
+        noise_meta = None
+        tmp_file = None
+        if scene:
+            tmp_file = tmp_dir / f"{input_wav.stem}.wav"
+            try:
+                _mix_noise(input_wav, scene, tmp_file, seed)
+            except Exception as exc:
+                runs.append({"status": "error", "noise_scene": scene["id"], "message": str(exc)})
+                continue
+            codec_in = tmp_file
+            noise_meta = scene
+
+        res = encode_decode(codec_in, bandwidth=bandwidth, bitrate_kbps=bitrate_kbps, cbr=cbr, seed=seed, noise_meta=noise_meta, reference=str(input_wav))
+        runs.append(res)
+
+        if tmp_file and tmp_file.exists():
+            try:
+                tmp_file.unlink()
+            except Exception:
+                pass
+
+    return {
+        "status": "ok",
+        "input": str(input_wav),
+        "bandwidth": bandwidth,
+        "bandwidth_label": bw["label"],
+        "bitrate_set_kbps": bitrate_kbps,
+        "cbr": cbr,
+        "seed": seed,
+        "n_runs": len(runs),
+        "runs": runs,
     }

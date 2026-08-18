@@ -152,6 +152,45 @@
   .pager-info { color: var(--gray-500); font-size: 13px; font-variant-numeric: tabular-nums; }
   .pager .btn-sm { padding: 7px 14px; font-size: 13px; }
   .pager button:disabled { opacity: .45; cursor: not-allowed; }
+
+  /* 04 噪声场景（弥散噪点渐变） */
+  .noise-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .noise-tile { position: relative; overflow: hidden; border-radius: var(--r-lg); padding: 16px; min-height: 128px; display: flex; flex-direction: column; gap: 8px; color: #3D2258; border: 1px solid rgba(255,255,255,.35); cursor: pointer; text-align: left; transition: filter var(--t-base) var(--ease-io), transform var(--t-base) var(--ease-io), box-shadow var(--t-base) var(--ease-io), opacity var(--t-base) var(--ease-io); box-shadow: inset 0 1px 0 rgba(255,255,255,.35), var(--shadow-card); }
+  .noise-tile:hover { transform: translateY(-3px); box-shadow: inset 0 1px 0 rgba(255,255,255,.35), var(--shadow-hover); }
+  .noise-tile.off { filter: grayscale(1); opacity: .45; }
+  .noise-tile::before { content: ""; position: absolute; inset: -60px; z-index: 0; filter: blur(48px); }
+  .noise-tile::after { content: ""; position: absolute; inset: 0; z-index: 0; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); mix-blend-mode: overlay; opacity: .14; pointer-events: none; }
+  .nt-top, .nt-meta, .nt-preview { position: relative; z-index: 1; }
+  .nt-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+  .nt-name { font-size: 15px; font-weight: 600; line-height: 1.25; }
+  .nt-state { font-size: 11px; border-radius: var(--r-full); padding: 2px 9px; background: rgba(255,255,255,.72); white-space: nowrap; }
+  .nt-meta { display: flex; gap: 8px; flex-wrap: wrap; font-size: 11px; }
+  .nt-meta span { background: rgba(255,255,255,.72); border-radius: var(--r-full); padding: 2px 9px; }
+  .nt-preview { margin-top: auto; align-self: flex-start; background: rgba(255,255,255,.72); color: #3D2258; border: 0; border-radius: var(--r-full); padding: 6px 13px; font-size: 12px; }
+  .nt-preview:hover { background: rgba(255,255,255,.92); }
+  .noise-tile.n-NPARK::before { background: radial-gradient(circle at 22% 28%, #4ADE80, transparent 58%), radial-gradient(circle at 78% 22%, #16A34A, transparent 54%), radial-gradient(circle at 50% 88%, #065F46, transparent 66%); }
+  .noise-tile.n-OOFFICE::before { background: radial-gradient(circle at 20% 30%, #2DD4BF, transparent 58%), radial-gradient(circle at 80% 25%, #0D9488, transparent 54%), radial-gradient(circle at 45% 88%, #134E4A, transparent 66%); }
+  .noise-tile.n-PCAFETER::before { background: radial-gradient(circle at 25% 30%, #60A5FA, transparent 58%), radial-gradient(circle at 75% 25%, #2563EB, transparent 54%), radial-gradient(circle at 50% 88%, #1E3A8A, transparent 66%); }
+  .noise-tile.n-PRESTO::before { background: radial-gradient(circle at 22% 30%, #FDE047, transparent 58%), radial-gradient(circle at 78% 25%, #FACC15, transparent 54%), radial-gradient(circle at 50% 88%, #CA8A04, transparent 66%); }
+  .noise-tile.n-STRAFFIC::before { background: radial-gradient(circle at 25% 30%, #FDBA74, transparent 58%), radial-gradient(circle at 75% 25%, #F97316, transparent 54%), radial-gradient(circle at 50% 88%, #C2410C, transparent 66%); }
+  .noise-tile.n-TMETRO::before { background: radial-gradient(circle at 22% 30%, #F87171, transparent 54%), radial-gradient(circle at 78% 25%, #DC2626, transparent 50%), radial-gradient(circle at 50% 88%, #7F1D1D, transparent 66%); }
+
+  /* 06 评测 */
+  .ev-progress { display: none; margin-top: 14px; }
+  .ev-progress.show { display: block; }
+  .ev-progress-track { height: 8px; background: rgba(255,255,255,.6); border-radius: var(--r-full); overflow: hidden; }
+  .ev-progress-bar { height: 100%; width: 0; background: var(--grad-brand); border-radius: var(--r-full); transition: width .4s var(--ease-out); }
+  .ev-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-top: 16px; }
+  .ev-stat { background: var(--glass); backdrop-filter: blur(var(--glass-blur)); -webkit-backdrop-filter: blur(var(--glass-blur)); border: 1px solid var(--glass-border); border-radius: var(--r-md); padding: 14px 16px; box-shadow: var(--shadow-card); }
+  .ev-stat .v { font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .ev-stat .l { font-size: 12px; color: var(--gray-600); margin-top: 2px; }
+  .ev-stat.up .v { color: var(--ok); }
+  .ev-stat.down .v { color: var(--bad); }
+  .ev-table th { cursor: pointer; user-select: none; white-space: nowrap; }
+  .ev-table th:hover { color: var(--purple-600); }
+  .ev-table td, .ev-table th { font-variant-numeric: tabular-nums; }
+  .delta-up { color: var(--ok); font-weight: 600; }
+  .delta-down { color: var(--bad); font-weight: 600; }
   .sheet-mask { position: fixed; inset: 0; background: rgba(17,24,39,.35); backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px); z-index: 20; opacity: 0; pointer-events: none; transition: opacity var(--t-slow) var(--ease-out); }
   .sheet { position: fixed; top: 0; right: 0; height: 100vh; width: min(1240px, 96vw); background: rgba(255,255,255,.82); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border-left: 1px solid var(--glass-border); box-shadow: -16px 0 48px rgba(31,38,135,.22); z-index: 21; transform: translateX(100%); transition: transform var(--t-slow) var(--ease-out); display: flex; flex-direction: column; padding: 24px; gap: 16px; }
   .sheet.open { transform: translateX(0); }
@@ -192,8 +231,8 @@
     <a class="nav-item" onclick="showView('voice')"><span class="num">02</span>音色聚类</a>
     <a class="nav-item" onclick="showView('tts')"><span class="num">03</span>TTS 合成</a>
     <a class="nav-item" onclick="showView('channel')"><span class="num">04</span>信道仿真</a>
-    <a class="nav-item" onclick="showView('overview','m05')"><span class="num">05</span>降噪 DUT</a>
-    <a class="nav-item" onclick="showView('overview','m06')"><span class="num">06</span>评测</a>
+    <a class="nav-item" onclick="showView('denoise')"><span class="num">05</span>降噪 DUT</a>
+    <a class="nav-item" onclick="showView('evaluate')"><span class="num">06</span>评测</a>
     <a class="nav-item" onclick="showView('overview','m07')"><span class="num">07</span>闭环大脑</a>
     <div class="aside-foot"><span class="dot-live"></span>本地服务运行中 · 纯 CPU</div>
   </aside>
@@ -207,7 +246,7 @@
       </div>
       <div class="kpis">
         <div class="kpi"><div class="ico i-purple">📝</div><div class="val" id="kpiCorpus">—</div><div class="lab">语料模板（条）</div></div>
-        <div class="kpi"><div class="ico i-teal">🧩</div><div class="val">2 / 7</div><div class="lab">模块已点亮</div></div>
+        <div class="kpi"><div class="ico i-teal">🧩</div><div class="val">6 / 7</div><div class="lab">模块已点亮</div></div>
         <div class="kpi"><div class="ico i-blue">🎨</div><div class="val">3</div><div class="lab">设计/架构文档</div></div>
         <div class="kpi"><div class="ico i-green">⚡</div><div class="val">CPU</div><div class="lab">运行环境 · 无 GPU</div></div>
       </div>
@@ -223,8 +262,8 @@
         <section class="card" id="m02" style="animation-delay:80ms"><div class="top"><div><span class="num">02 · VOICE</span><h2>音色聚类</h2></div><span class="badge on">已点亮</span></div><p>声线特征 + 肘部法聚类 + 覆盖矩阵。点左侧「02 音色聚类」进入。</p></section>
         <section class="card" id="m03" style="animation-delay:120ms"><div class="top"><div><span class="num">03 · TTS</span><h2>TTS 合成</h2></div><span class="badge on">已点亮</span></div><p>MiniMax 系统音色合成 exam wav，可试听。点左侧「03 TTS 合成」进入。</p></section>
         <section class="card" id="m04" style="animation-delay:160ms"><div class="top"><div><span class="num">04 · CHANNEL</span><h2>信道仿真</h2></div><span class="badge on">已点亮</span></div><p>Opus 编解码闭环，覆盖 VoIP/OTT；噪声、丢包后续接入。</p></section>
-        <section class="card" id="m05" style="animation-delay:200ms"><div class="top"><div><span class="num">05 · DENOISE</span><h2>降噪 DUT</h2></div><span class="badge off">待施工</span></div><p>GTCRN / DeepFilterNet3，version_spec 切换。</p></section>
-        <section class="card" id="m06" style="animation-delay:240ms"><div class="top"><div><span class="num">06 · EVALUATE</span><h2>评测</h2></div><span class="badge off">待施工</span></div><p>audiobox 出 PQ / PC / CE / CU，落盘 CSV。</p></section>
+        <section class="card" id="m05" style="animation-delay:200ms"><div class="top"><div><span class="num">05 · DENOISE</span><h2>降噪 DUT</h2></div><span class="badge on">已点亮</span></div><p>GTCRN / DeepFilterNet3，version_spec 切换，输入 04 degraded wav。点左侧「05 降噪 DUT」进入。</p></section>
+        <section class="card" id="m06" style="animation-delay:240ms"><div class="top"><div><span class="num">06 · EVALUATE</span><h2>评测</h2></div><span class="badge on">已点亮</span></div><p>audiobox 出 PQ / PC / CE / CU，干净→退化→降噪 ΔPQ 对比。点左侧「06 评测」进入。</p></section>
         <section class="card" id="m07" style="animation-delay:280ms"><div class="top"><div><span class="num">07 · LOOP</span><h2>闭环大脑</h2></div><span class="badge off">待施工</span></div><p>归因 → 迭代 → 判定 → 金标人工验收。</p></section>
       </div>
     </div>
@@ -294,20 +333,63 @@
     <!-- 04 信道仿真详情视图 -->
     <div id="view-channel" hidden>
       <div class="page-head">
-        <div><h1>信道仿真</h1><div class="subtitle">04 · CHANNEL · Opus 编解码闭环（VoIP/OTT）</div></div>
+        <div><h1>信道仿真</h1><div class="subtitle">04 · CHANNEL · 噪声场景 × Opus 编解码（VoIP/OTT）</div></div>
         <span class="back" onclick="showView('overview')">← 返回总览</span>
       </div>
+
+      <!-- 噪声场景 -->
       <div class="card">
-        <div class="top"><div><span class="num">信道配方</span><h2>Opus 编解码</h2></div><span class="badge on">可运行</span></div>
+        <div class="top"><div><span class="num">噪声场景</span><h2>选择要测试的噪声</h2></div><span class="badge on">点击方块可制灰跳过</span></div>
+        <div class="noise-grid" id="noiseGrid"></div>
+        <p class="muted-sm" style="margin-top:2px">颜色越深越吵 · 地铁为 90dB 实验室档 · 点「▶ 试听」预览噪声</p>
+      </div>
+
+      <!-- 输入与编解码 -->
+      <div class="card">
+        <div class="top"><div><span class="num">输入与编解码</span><h2>Opus 编解码</h2></div><span class="badge on">可运行</span></div>
         <div class="grid-2">
           <div class="field"><label>输入 wav（data/exam）</label><select id="chInput"></select></div>
           <div class="field"><label>带宽档</label><select id="chBandwidth" onchange="onBandwidthChange()"></select></div>
         </div>
         <div class="field"><label>自动参数</label><div class="muted-sm" id="chAutoHint">码率按带宽自动锁定 · VBR</div></div>
         <div class="field"><label>seed</label><input id="chSeed" type="number" value="42"></div>
-        <div style="display:flex;align-items:center;gap:12px;"><button class="btn-primary" id="chBtn" onclick="runChannel()">施加信道</button><span class="muted-sm">Opus 编解码 → degraded wav · 落盘 data/matrix/</span></div>
+        <div style="display:flex;align-items:center;gap:12px;"><button class="btn-primary" id="chBtn" onclick="runChannel()">施加信道</button><span class="muted-sm">噪声 + 编解码 → degraded wav · 落盘 data/matrix/</span></div>
       </div>
       <div id="chResult"></div>
+    </div>
+
+    <!-- 05 降噪 DUT 详情视图 -->
+    <div id="view-denoise" hidden>
+      <div class="page-head">
+        <div><h1>降噪 DUT</h1><div class="subtitle">05 · DENOISE · GTCRN / DeepFilterNet3 · 输入 04 degraded wav</div></div>
+        <div class="head-actions">
+          <button class="btn-ghost" onclick="openDenoiseLeaderboard()">降噪榜单 ↗</button>
+          <span class="back" onclick="showView('overview')">← 返回总览</span>
+        </div>
+      </div>
+      <div class="card">
+        <div class="top"><div><span class="num">降噪配方</span><h2>DUT 被测对象</h2></div><span class="badge on">可运行</span></div>
+        <div class="grid-2">
+          <div class="field"><label>输入 wav（data/matrix）</label><select id="dnInput"></select></div>
+          <div class="field"><label>降噪模型</label><select id="dnModel"></select></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;"><button class="btn-primary" id="dnBtn" onclick="runDenoise()">运行降噪</button><span class="muted-sm">degraded wav → 降噪 wav · 落盘 data/denoised/&lt;model&gt;/</span></div>
+      </div>
+      <div id="dnResult"></div>
+    </div>
+
+    <!-- 06 评测详情视图 -->
+    <div id="view-evaluate" hidden>
+      <div class="page-head">
+        <div><h1>评测</h1><div class="subtitle">06 · EVALUATE · audiobox PQ/PC/CE/CU · 干净→退化→降噪 ΔPQ</div></div>
+        <span class="back" onclick="showView('overview')">← 返回总览</span>
+      </div>
+      <div class="card">
+        <div class="top"><div><span class="num">评测设置</span><h2>降噪对比</h2></div><span class="badge on">可运行</span></div>
+        <div style="display:flex;align-items:center;gap:12px;"><button class="btn-primary" id="evBtn" onclick="runEvaluate()">开始评测</button><span class="muted-sm">评干净 / 退化 / 降噪三份 → ΔPQ · 模型约 396MB 首次加载较慢</span></div>
+        <div class="ev-progress" id="evProgress"><div class="ev-progress-track"><div class="ev-progress-bar" id="evProgressBar"></div></div><div class="muted-sm" id="evProgressText">准备评测…</div></div>
+      </div>
+      <div id="evResult"></div>
     </div>
   </main>
 
@@ -335,6 +417,31 @@
     <iframe id="lbFrame" class="lb-frame" referrerpolicy="no-referrer" translate="no" title="TTS 实时榜单"></iframe>
   </div>
 
+  <div class="sheet-mask" id="dnMask" onclick="closeDenoiseLeaderboard()"></div>
+  <div class="sheet" id="dnSheet">
+    <div class="sheet-head">
+      <div><span class="num">榜单参考</span><h2>降噪 / 语音增强榜单</h2></div>
+      <button class="sheet-close" onclick="closeDenoiseLeaderboard()" title="关闭">×</button>
+    </div>
+    <details class="lb-legend">
+      <summary>
+        <span class="lg-tag">榜单说明</span>
+        URGENT Challenge 2026 · 通用语音增强最终排名
+      </summary>
+      <div class="lg-body">
+        <div>URGENT = Universality / Robustness / Generalizability for Enhancement，即语音增强的通用性、鲁棒性与泛化性竞赛。</div>
+        <div>Track1 为通用语音增强；常见指标含 DNSMOS、ITU-T P.808 MOS、WAcc 等。该页为最终排名入口，完整交互榜单可点「新窗口打开」查看。</div>
+        <div class="lg-note">默认源为 GitHub Pages（可内嵌）。下方输入框可替换成任意允许内嵌的榜单网址。</div>
+      </div>
+    </details>
+    <div class="lb-actions">
+      <input id="dnUrl" type="text" placeholder="粘贴榜单网址">
+      <button class="btn-ghost" onclick="applyDenoiseLeaderboard()">应用</button>
+      <button class="btn-ghost" onclick="openDenoiseLeaderboardExternal()">新窗口打开 ↗</button>
+    </div>
+    <iframe id="dnFrame" class="lb-frame" referrerpolicy="no-referrer" translate="no" title="降噪 / 语音增强榜单"></iframe>
+  </div>
+
 <script>
 let items = [];
 let voices = [];
@@ -343,14 +450,17 @@ let voiceKind = "all";
 let voicePage = 1;
 const VOICE_PAGE_SIZE = 12;
 const LB_DEFAULT = "https://artificialanalysis.ai/text-to-speech/leaderboard/provider-voice";
+const DN_LB_DEFAULT = "https://urgent-challenge.github.io/urgent2026/ranking/";
 function esc(s){ return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
 function showView(name, anchor){
   document.getElementById("view-overview").hidden = name !== "overview";
   document.getElementById("view-voice").hidden = name !== "voice";
   document.getElementById("view-tts").hidden = name !== "tts";
   document.getElementById("view-channel").hidden = name !== "channel";
+  document.getElementById("view-denoise").hidden = name !== "denoise";
+  document.getElementById("view-evaluate").hidden = name !== "evaluate";
   document.querySelectorAll(".nav-item").forEach(a=>a.classList.remove("active"));
-  const key = name === "overview" ? "◈总览" : (name === "voice" ? "02音色聚类" : (name === "tts" ? "03TTS合成" : (name === "channel" ? "04信道仿真" : "◈总览")));
+  const key = name === "overview" ? "◈总览" : (name === "voice" ? "02音色聚类" : (name === "tts" ? "03TTS合成" : (name === "channel" ? "04信道仿真" : (name === "denoise" ? "05降噪DUT" : (name === "evaluate" ? "06评测" : "◈总览")))));
   const navs = document.querySelectorAll(".nav-item");
   navs.forEach(a=>{ const txt=a.textContent.trim().replace(/\s+/g,""); if(txt.startsWith(key)) a.classList.add("active"); });
   if(name === "overview" && anchor){ const el=document.getElementById(anchor); if(el) el.scrollIntoView({behavior:"smooth"}); }
@@ -359,6 +469,7 @@ async function init(){
   try{ const r=await fetch("/api/corpus/templates"); const d=await r.json(); items=d.templates.slice(0,4).map(t=>({...t})); document.getElementById("kpiCorpus").textContent=d.templates.length; }catch(e){ items=[]; }
   initTts();
   initChannel();
+  initDenoise();
   render();
 }
 
@@ -523,15 +634,21 @@ async function generate(){
 /* ---------- 04 信道仿真 ---------- */
 let chPresets = [];
 let chInputs = [];
+let chNoiseScenes = [];
+let chNoiseEnabled = {};
+let chPreviewAudio = null;
 async function initChannel(){
   try{
-    const [p, i] = await Promise.all([
+    const [p, i, n] = await Promise.all([
       fetch("/api/channel/presets").then(r=>r.json()),
-      fetch("/api/channel/inputs").then(r=>r.json())
+      fetch("/api/channel/inputs").then(r=>r.json()),
+      fetch("/api/channel/noise/scenes").then(r=>r.json())
     ]);
     chPresets = p.presets || [];
     chInputs = i.inputs || [];
+    chNoiseScenes = n.scenes || [];
     renderChannelControls();
+    renderNoiseGrid();
   }catch(e){}
 }
 function renderChannelControls(){
@@ -547,6 +664,36 @@ function onBandwidthChange(){
   const hint = document.getElementById("chAutoHint");
   if(hint && preset) hint.textContent=`码率自动锁定 ${preset.default_bitrate} kbps · VBR`;
 }
+function renderNoiseGrid(){
+  const grid = document.getElementById("noiseGrid");
+  grid.innerHTML = chNoiseScenes.map(s=>{
+    const on = chNoiseEnabled[s.id] !== false;
+    return `<div class="noise-tile n-${esc(s.id)} ${on?"":"off"}" onclick="toggleNoiseTile('${esc(s.id)}')">
+      <div class="nt-top"><span class="nt-name">${esc(s.label)}</span><span class="nt-state">${on?"已启用":"已跳过"}</span></div>
+      <div class="nt-meta"><span>SNR ${s.snr_db} dB</span><span>≈${s.level_db} dB</span></div>
+      <button class="nt-preview" onclick="event.stopPropagation();previewNoise(this,'${esc(s.preview)}')">${s.preview_ready?"▶ 试听":"无预览"}</button>
+    </div>`;
+  }).join("");
+}
+function toggleNoiseTile(id){
+  chNoiseEnabled[id] = chNoiseEnabled[id] === false;
+  renderNoiseGrid();
+}
+function previewNoise(btn, filename){
+  if(chPreviewAudio && !chPreviewAudio.paused){
+    chPreviewAudio.pause();
+    chPreviewAudio = null;
+    btn.textContent = "▶ 试听";
+    return;
+  }
+  if(!filename) return;
+  const a = new Audio("/api/channel/noise/preview/"+encodeURIComponent(filename));
+  chPreviewAudio = a;
+  btn.textContent = "■ 停止";
+  a.onended = ()=>{ btn.textContent="▶ 试听"; chPreviewAudio=null; };
+  a.onerror = ()=>{ btn.textContent="▶ 重试"; chPreviewAudio=null; };
+  a.play().catch(()=>{ btn.textContent="▶ 重试"; chPreviewAudio=null; });
+}
 async function runChannel(){
   const btn = document.getElementById("chBtn"); btn.disabled=true; btn.textContent="施加中…";
   const input_wav = document.getElementById("chInput").value;
@@ -555,23 +702,228 @@ async function runChannel(){
   const bitrate_kbps = preset ? preset.default_bitrate : 16;
   const cbr = false;
   const seed = parseInt(document.getElementById("chSeed").value) || 42;
+  const noise_scenes = chNoiseScenes.filter(s=>chNoiseEnabled[s.id]!==false).map(s=>s.id);
   try{
-    const r = await fetch("/api/channel/run",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({input_wav,bandwidth,bitrate_kbps,cbr,seed})});
+    const r = await fetch("/api/channel/run",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({input_wav,bandwidth,bitrate_kbps,cbr,seed,noise_scenes})});
     const d = await r.json();
     if(d.status!=="ok"){ document.getElementById("chResult").innerHTML=`<div class="panel"><div class="warn">${esc(d.message||"失败")}</div></div>`; return; }
-    document.getElementById("chResult").innerHTML=`
-      <div class="panel"><h3>信道仿真结果</h3>
-        <div class="suggest">
-          <div class="chip-big"><b>${esc(d.bandwidth_label)}</b><span>带宽</span></div>
-          <div class="chip-big"><b>${d.bitrate_set_kbps} → ${d.bitrate_measured_kbps}</b><span>设定 / 实测 kbps</span></div>
-          <div class="chip-big"><b>${esc(d.vbr_cbr.toUpperCase())}</b><span>码控</span></div>
-          <div class="chip-big"><b>${d.seed}</b><span>seed</span></div>
-        </div>
-        <div style="margin-top:12px"><audio controls src="/api/channel/audio/${encodeURIComponent(d.filename)}" style="width:100%"></audio></div>
-        <p class="muted-sm" style="margin-top:8px">${esc(d.filename)} · 实测 ${d.bitrate_measured_kbps} kbps · 落盘 data/matrix/</p>
-      </div>`;
+    renderChannelResults(d);
   }catch(e){ document.getElementById("chResult").innerHTML=`<div class="panel"><div class="warn">调用失败：${esc(e.message)}</div></div>`; }
   finally{ btn.disabled=false; btn.textContent="施加信道"; }
+}
+function renderChannelResults(d){
+  const okRuns = d.runs.filter(x=>x.status==="ok");
+  const errRuns = d.runs.filter(x=>x.status!=="ok");
+  let html = `<div class="panel"><h3>信道仿真结果 · ${okRuns.length} 条</h3>`;
+  if(errRuns.length){
+    html += `<div class="warn" style="margin-bottom:10px">${errRuns.length} 条失败：${esc(errRuns.map(x=>x.noise_label||x.message||"").join(" / "))}</div>`;
+  }
+  html += okRuns.map(x=>`
+    <div style="display:flex;gap:12px;align-items:center;padding:9px 0;border-top:1px solid var(--gray-200)">
+      <span style="background:#EDE9FE;color:#7C3AED;border-radius:999px;padding:2px 9px;font-size:12px;font-weight:500;min-width:104px;text-align:center">${esc(x.noise_label)}</span>
+      <span class="muted-sm" style="min-width:170px">${x.snr_db!=null?("SNR "+x.snr_db+" dB · "):""}${esc(x.bandwidth_label)} · ${x.bitrate_measured_kbps} kbps</span>
+      <audio controls src="/api/channel/audio/${encodeURIComponent(x.filename)}" style="flex:1"></audio>
+    </div>`).join("");
+  html += `<p class="muted-sm" style="margin-top:8px">设定 ${d.bitrate_set_kbps} kbps · ${d.cbr?"CBR":"VBR"} · seed ${d.seed} · 落盘 data/matrix/</p></div>`;
+  document.getElementById("chResult").innerHTML = html;
+}
+
+/* ---------- 05 降噪 DUT ---------- */
+let dnModels = [];
+let dnInputs = [];
+async function initDenoise(){
+  try{
+    const [m, i] = await Promise.all([
+      fetch("/api/denoise/models").then(r=>r.json()),
+      fetch("/api/denoise/inputs").then(r=>r.json())
+    ]);
+    dnModels = m.models || [];
+    dnInputs = i.inputs || [];
+    renderDenoiseControls();
+  }catch(e){}
+}
+function renderDenoiseControls(){
+  const inp = document.getElementById("dnInput");
+  inp.innerHTML = dnInputs.length
+    ? dnInputs.map(x=>`<option value="${esc(x.path)}">${esc(x.name)}</option>`).join("")
+    : `<option value="">暂无 degraded wav（请先跑 04）</option>`;
+  const model = document.getElementById("dnModel");
+  model.innerHTML = dnModels.length
+    ? dnModels.map(x=>`<option value="${esc(x.id)}" ${x.id==="gtcrn"?"selected":""}>${esc(x.name)}${x.ready?"":"（未就绪）"}</option>`).join("")
+    : `<option value="">暂无模型</option>`;
+}
+async function runDenoise(){
+  const btn = document.getElementById("dnBtn"); btn.disabled=true; btn.textContent="降噪中…";
+  const input_wav = document.getElementById("dnInput").value;
+  const model = document.getElementById("dnModel").value;
+  if(!input_wav){ document.getElementById("dnResult").innerHTML=`<div class="panel"><div class="warn">暂无 degraded wav，请先在 04 信道仿真生成。</div></div>`; btn.disabled=false; btn.textContent="运行降噪"; return; }
+  try{
+    const r = await fetch("/api/denoise/run",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({input_wav,model})});
+    const d = await r.json();
+    if(d.status!=="ok"){ document.getElementById("dnResult").innerHTML=`<div class="panel"><div class="warn">${esc(d.message||"失败")}</div></div>`; return; }
+    document.getElementById("dnResult").innerHTML=`
+      <div class="panel"><h3>降噪结果</h3>
+        <div class="suggest">
+          <div class="chip-big"><b>${esc(d.model_name||d.model)}</b><span>模型</span></div>
+          <div class="chip-big"><b>${d.work_sample_rate} Hz</b><span>工作采样率</span></div>
+          <div class="chip-big"><b>${d.duration_s}s</b><span>时长</span></div>
+        </div>
+        <div style="margin-top:12px"><audio controls src="/api/denoise/audio/${encodeURIComponent(d.model)}/${encodeURIComponent(d.filename)}" style="width:100%"></audio></div>
+        <p class="muted-sm" style="margin-top:8px">${esc(d.filename)} · 落盘 data/denoised/${esc(d.model)}/</p>
+      </div>`;
+  }catch(e){ document.getElementById("dnResult").innerHTML=`<div class="panel"><div class="warn">调用失败：${esc(e.message)}</div></div>`; }
+  finally{ btn.disabled=false; btn.textContent="运行降噪"; }
+}
+function loadDenoiseLeaderboard(){
+  const url=localStorage.getItem("denoiseLeaderboardUrl")||DN_LB_DEFAULT;
+  const input=document.getElementById("dnUrl");
+  const frame=document.getElementById("dnFrame");
+  if(input) input.value=url;
+  if(frame && frame.getAttribute("src")!==url) frame.src=url;
+}
+function applyDenoiseLeaderboard(){
+  const input=document.getElementById("dnUrl");
+  const url=(input.value||"").trim();
+  if(!url) return;
+  localStorage.setItem("denoiseLeaderboardUrl",url);
+  document.getElementById("dnFrame").src=url;
+}
+function openDenoiseLeaderboard(){
+  loadDenoiseLeaderboard();
+  document.getElementById("dnMask").classList.add("open");
+  document.getElementById("dnSheet").classList.add("open");
+  document.body.style.overflow="hidden";
+}
+function closeDenoiseLeaderboard(){
+  document.getElementById("dnMask").classList.remove("open");
+  document.getElementById("dnSheet").classList.remove("open");
+  document.body.style.overflow="";
+}
+function openDenoiseLeaderboardExternal(){
+  const url=(document.getElementById("dnUrl").value||DN_LB_DEFAULT).trim();
+  window.open(url,"_blank","noopener");
+}
+
+/* ---------- 06 评测 ---------- */
+let evalTimer = null;
+let evalRows = [];
+let evalModels = [];
+let evalSortKey = "degraded_pq";
+let evalSortDir = -1;
+function fmt(v){ return v==null ? "—" : Number(v).toFixed(2); }
+async function runEvaluate(){
+  const btn = document.getElementById("evBtn"); btn.disabled=true; btn.textContent="评测中…";
+  document.getElementById("evResult").innerHTML="";
+  document.getElementById("evProgress").classList.add("show");
+  document.getElementById("evProgressBar").style.width="0%";
+  document.getElementById("evProgressText").textContent="准备评测…";
+  try{
+    const r = await fetch("/api/evaluate/run",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({batch_size:4})});
+    const d = await r.json();
+    if(d.status!=="ok"){ throw new Error(d.message||"启动失败"); }
+    evalTimer = setInterval(pollEvaluate, 1000);
+  }catch(e){
+    document.getElementById("evProgress").classList.remove("show");
+    btn.disabled=false; btn.textContent="开始评测";
+    document.getElementById("evResult").innerHTML=`<div class="panel"><div class="warn">启动失败：${esc(e.message)}</div></div>`;
+  }
+}
+async function pollEvaluate(){
+  try{
+    const r=await fetch("/api/evaluate/status"); const d=await r.json();
+    const pct=Math.max(0,Math.min(100,d.progress||0));
+    document.getElementById("evProgressBar").style.width=pct+"%";
+    document.getElementById("evProgressText").textContent=d.message+(d.total?` · ${pct}%`:"");
+    if(d.state==="done"){
+      clearInterval(evalTimer); evalTimer=null;
+      document.getElementById("evProgress").classList.remove("show");
+      const btn=document.getElementById("evBtn"); btn.disabled=false; btn.textContent="开始评测";
+      renderEvaluateResults(d.result);
+    }else if(d.state==="error"){
+      clearInterval(evalTimer); evalTimer=null;
+      document.getElementById("evProgress").classList.remove("show");
+      const btn=document.getElementById("evBtn"); btn.disabled=false; btn.textContent="开始评测";
+      document.getElementById("evResult").innerHTML=`<div class="panel"><div class="warn">评测失败：${esc(d.message)}</div></div>`;
+    }
+  }catch(e){}
+}
+function renderEvaluateResults(result){
+  if(!result || result.status!=="ok"){
+    document.getElementById("evResult").innerHTML=`<div class="panel"><div class="warn">${esc((result&&result.message)||"无结果")}</div></div>`;
+    return;
+  }
+  const s=result.summary||{};
+  const models=result.models||[];
+  evalModels=models;
+  evalRows=result.rows||[];
+  evalSortKey="degraded_pq"; evalSortDir=-1;
+  let statHtml=`<div class="ev-stats">
+    <div class="ev-stat"><div class="v">${fmt(s.clean_pq_avg)}</div><div class="l">干净 PQ 均</div></div>
+    <div class="ev-stat"><div class="v">${fmt(s.degraded_pq_avg)}</div><div class="l">退化 PQ 均</div></div>`;
+  models.forEach(m=>{
+    const d=s[m+"_delta_avg"];
+    statHtml+=`<div class="ev-stat"><div class="v">${fmt(s[m+"_pq_avg"])}</div><div class="l">${esc(m)} PQ 均</div></div>
+      <div class="ev-stat ${d==null?"":(d>=0?"up":"down")}"><div class="v">${d==null?"—":((d>0?"+":"")+fmt(d))}</div><div class="l">${esc(m)} ΔPQ 均</div></div>`;
+  });
+  statHtml+="</div>";
+  const chart=buildEvalChart(s,models);
+  document.getElementById("evResult").innerHTML=`<div class="panel"><h3>统计摘要</h3>${statHtml}<div style="margin-top:18px"><h3 style="font-size:14px;margin-bottom:8px">平均 PQ 对比</h3>${chart}</div></div>
+    <div class="panel"><h3>降噪对比明细（${evalRows.length} 条）</h3><div id="evTableWrap">${evalTableHtml()}</div></div>`;
+}
+function buildEvalChart(s,models){
+  const cats=[{k:"clean_pq_avg",label:"干净",color:"#10B981"},{k:"degraded_pq_avg",label:"退化",color:"#F87171"}].concat(models.map((m,i)=>({k:m+"_pq_avg",label:m,color:["#8B5CF6","#0EA5E9"][i%2]})));
+  const vals=cats.map(c=>s[c.k]);
+  const valid=vals.filter(v=>v!=null);
+  const max=Math.max(10,...valid);
+  const w=Math.max(520,cats.length*120), h=250, pad=36;
+  const bw=(w-2*pad)/cats.length;
+  let inner="";
+  cats.forEach((c,i)=>{
+    const v=vals[i]; if(v==null) return;
+    const x=pad+i*bw+bw*0.22;
+    const hh=Math.max(2,(v/max)*(h-2*pad));
+    const y=h-pad-hh;
+    inner+=`<rect x="${x}" y="${y}" width="${bw*0.56}" height="${hh}" rx="7" fill="${c.color}"/><text x="${x+bw*0.28}" y="${y-7}" font-size="12" text-anchor="middle" fill="#374151" font-weight="600">${fmt(v)}</text><text x="${x+bw*0.28}" y="${h-pad+17}" font-size="12" text-anchor="middle" fill="#6B7280">${c.label}</text>`;
+  });
+  return `<svg class="chart" viewBox="0 0 ${w} ${h}"><line x1="${pad}" y1="${h-pad}" x2="${w-pad}" y2="${h-pad}" stroke="#E5E7EB"/><line x1="${pad}" y1="${pad}" x2="${pad}" y2="${h-pad}" stroke="#E5E7EB"/>${inner}</svg>`;
+}
+function setEvalSort(key){
+  if(evalSortKey===key){ evalSortDir*=-1; } else { evalSortKey=key; evalSortDir=-1; }
+  const el=document.getElementById("evTableWrap");
+  if(el) el.innerHTML=evalTableHtml();
+}
+function evalTableHtml(){
+  const models=evalModels;
+  const cols=[
+    {k:"noise_label",label:"场景"},
+    {k:"snr_db",label:"SNR dB"},
+    {k:"clean_pq",label:"干净 PQ"},
+    {k:"degraded_pq",label:"退化 PQ"},
+  ];
+  models.forEach(m=>{ cols.push({k:m+"_pq",label:m+" PQ"}); cols.push({k:m+"_delta",label:m+" Δ"}); });
+  const rows=evalRows.slice().sort((a,b)=>{
+    const av=a[evalSortKey], bv=b[evalSortKey];
+    const an=Number(av), bn=Number(bv);
+    if(!isNaN(an)&&!isNaN(bn)) return (an-bn)*evalSortDir;
+    return String(av??"").localeCompare(String(bv??""))*evalSortDir;
+  });
+  const head=cols.map(c=>`<th onclick="setEvalSort('${c.k}')">${c.label}${evalSortKey===c.k?(evalSortDir<0?" ↓":" ↑"):""}</th>`).join("");
+  const body=rows.map(r=>{
+    const cells=cols.map(c=>{
+      const v=r[c.k];
+      if(c.k.endsWith("_delta")){
+        const n=Number(v);
+        return `<td class="${isNaN(n)?"":(n>=0?"delta-up":"delta-down")}">${isNaN(n)?"—":((n>0?"+":"")+n.toFixed(2))}</td>`;
+      }
+      if(c.k.endsWith("_pq")){
+        const n=Number(v);
+        return `<td>${isNaN(n)?"—":Number(v).toFixed(2)}</td>`;
+      }
+      return `<td>${esc(v??"")}</td>`;
+    }).join("");
+    return `<tr>${cells}</tr>`;
+  }).join("");
+  return `<table class="ev-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
 }
 
 /* ---------- 02 音色聚类 ---------- */
@@ -646,7 +998,7 @@ function matrixTable(d){
 }
 init();
 const initialView = new URLSearchParams(location.search).get("view");
-if (initialView === "voice" || initialView === "tts" || initialView === "channel") showView(initialView);
+if (initialView === "voice" || initialView === "tts" || initialView === "channel" || initialView === "denoise" || initialView === "evaluate") showView(initialView);
 </script>
 </body>
 </html>
