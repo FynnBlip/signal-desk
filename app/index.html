@@ -191,6 +191,22 @@
   .ev-table td, .ev-table th { font-variant-numeric: tabular-nums; }
   .delta-up { color: var(--ok); font-weight: 600; }
   .delta-down { color: var(--bad); font-weight: 600; }
+  .sheet.narrow { width: min(780px, 96vw); }
+  .ev-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+  .ev-weights { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 4px; }
+  .level-row { display: grid; grid-template-columns: 46px 92px 1fr 36px; gap: 8px; align-items: center; padding: 8px 0; border-top: 1px solid var(--gray-200); }
+  .level-row input { border: 1px solid var(--gray-200); border-radius: 8px; padding: 6px 8px; font-size: 13px; font-family: inherit; background: rgba(255,255,255,.7); color: var(--gray-700); }
+  .level-row input:focus { outline: none; box-shadow: 0 0 0 2px var(--purple-500); }
+  .level-row input[type=color] { width: 40px; height: 30px; padding: 2px; cursor: pointer; }
+  .level-del { background: none; border: 0; color: var(--gray-400); font-size: 16px; cursor: pointer; }
+  .level-del:hover { color: var(--bad); }
+  .metric-badge { display: inline-flex; align-items: center; gap: 6px; border-radius: var(--r-full); padding: 3px 10px; font-size: 12px; font-weight: 600; color: #fff; }
+  .disabled-hint { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--gray-400); }
+  .field select:disabled, .field input:disabled { opacity: .5; cursor: not-allowed; }
+  .muted-col { color: var(--gray-400); }
+  .tab.disabled { opacity: .4; cursor: not-allowed; pointer-events: none; }
+  .quick-dir-label { font-size: 12px; color: var(--gray-500); white-space: nowrap; }
+  .report-body { flex: 1; overflow: auto; white-space: pre-wrap; font-family: var(--font-sans); font-size: 13px; line-height: 1.6; background: rgba(255,255,255,.65); border: 1px solid var(--gray-200); border-radius: var(--r-md); padding: 16px; color: var(--gray-700); }
   .sheet-mask { position: fixed; inset: 0; background: rgba(17,24,39,.35); backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px); z-index: 20; opacity: 0; pointer-events: none; transition: opacity var(--t-slow) var(--ease-out); }
   .sheet { position: fixed; top: 0; right: 0; height: 100vh; width: min(1240px, 96vw); background: rgba(255,255,255,.82); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border-left: 1px solid var(--glass-border); box-shadow: -16px 0 48px rgba(31,38,135,.22); z-index: 21; transform: translateX(100%); transition: transform var(--t-slow) var(--ease-out); display: flex; flex-direction: column; padding: 24px; gap: 16px; }
   .sheet.open { transform: translateX(0); }
@@ -233,7 +249,7 @@
     <a class="nav-item" onclick="showView('channel')"><span class="num">04</span>信道仿真</a>
     <a class="nav-item" onclick="showView('denoise')"><span class="num">05</span>降噪 DUT</a>
     <a class="nav-item" onclick="showView('evaluate')"><span class="num">06</span>评测</a>
-    <a class="nav-item" onclick="showView('overview','m07')"><span class="num">07</span>闭环大脑</a>
+    <a class="nav-item" onclick="showView('loop')"><span class="num">07</span>闭环大脑</a>
     <div class="aside-foot"><span class="dot-live"></span>本地服务运行中 · 纯 CPU</div>
   </aside>
 
@@ -246,7 +262,7 @@
       </div>
       <div class="kpis">
         <div class="kpi"><div class="ico i-purple">📝</div><div class="val" id="kpiCorpus">—</div><div class="lab">语料模板（条）</div></div>
-        <div class="kpi"><div class="ico i-teal">🧩</div><div class="val">6 / 7</div><div class="lab">模块已点亮</div></div>
+        <div class="kpi"><div class="ico i-teal">🧩</div><div class="val">7 / 7</div><div class="lab">模块已点亮</div></div>
         <div class="kpi"><div class="ico i-blue">🎨</div><div class="val">3</div><div class="lab">设计/架构文档</div></div>
         <div class="kpi"><div class="ico i-green">⚡</div><div class="val">CPU</div><div class="lab">运行环境 · 无 GPU</div></div>
       </div>
@@ -264,7 +280,7 @@
         <section class="card" id="m04" style="animation-delay:160ms"><div class="top"><div><span class="num">04 · CHANNEL</span><h2>信道仿真</h2></div><span class="badge on">已点亮</span></div><p>Opus 编解码闭环，覆盖 VoIP/OTT；噪声、丢包后续接入。</p></section>
         <section class="card" id="m05" style="animation-delay:200ms"><div class="top"><div><span class="num">05 · DENOISE</span><h2>降噪 DUT</h2></div><span class="badge on">已点亮</span></div><p>GTCRN / DeepFilterNet3，version_spec 切换，输入 04 degraded wav。点左侧「05 降噪 DUT」进入。</p></section>
         <section class="card" id="m06" style="animation-delay:240ms"><div class="top"><div><span class="num">06 · EVALUATE</span><h2>评测</h2></div><span class="badge on">已点亮</span></div><p>audiobox 出 PQ / PC / CE / CU，干净→退化→降噪 ΔPQ 对比。点左侧「06 评测」进入。</p></section>
-        <section class="card" id="m07" style="animation-delay:280ms"><div class="top"><div><span class="num">07 · LOOP</span><h2>闭环大脑</h2></div><span class="badge off">待施工</span></div><p>归因 → 迭代 → 判定 → 金标人工验收。</p></section>
+        <section class="card" id="m07" style="animation-delay:280ms"><div class="top"><div><span class="num">07 · LOOP</span><h2>闭环大脑</h2></div><span class="badge on">已点亮</span></div><p>归因 → 条件晋级判定 → LLM/规则建议 → 人在环执行。点左侧「07 闭环大脑」进入。</p></section>
       </div>
     </div>
 
@@ -381,15 +397,89 @@
     <!-- 06 评测详情视图 -->
     <div id="view-evaluate" hidden>
       <div class="page-head">
-        <div><h1>评测</h1><div class="subtitle">06 · EVALUATE · audiobox PQ/PC/CE/CU · 干净→退化→降噪 ΔPQ</div></div>
-        <span class="back" onclick="showView('overview')">← 返回总览</span>
+        <div><h1>评测</h1><div class="subtitle">06 · EVALUATE · audiobox PQ/PC/CE/CU · 综合评分 + 等级 + 降噪对比</div></div>
+        <div class="head-actions">
+          <button class="btn-ghost" onclick="openEvalSettings()">设置</button>
+          <span class="back" onclick="showView('overview')">← 返回总览</span>
+        </div>
       </div>
       <div class="card">
-        <div class="top"><div><span class="num">评测设置</span><h2>降噪对比</h2></div><span class="badge on">可运行</span></div>
-        <div style="display:flex;align-items:center;gap:12px;"><button class="btn-primary" id="evBtn" onclick="runEvaluate()">开始评测</button><span class="muted-sm">评干净 / 退化 / 降噪三份 → ΔPQ · 模型约 396MB 首次加载较慢</span></div>
+        <div class="top"><div><span class="num">评测设置</span><h2>评测对象</h2></div><span class="badge on">可运行</span></div>
+        <div class="tabs" id="evalModeSeg" style="margin-top:2px">
+          <button class="tab active" data-mode="comparison" onclick="setEvalMode('comparison')">链路对比</button>
+          <button class="tab" data-mode="directory" onclick="setEvalMode('directory')">目录评测</button>
+        </div>
+        <div id="evalFolderRow" style="display:none;margin-top:12px">
+          <div class="field"><label>目录路径（wav）</label>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <input id="evalFolder" type="text" placeholder="C:\path\to\wav" style="flex:1;min-width:240px">
+              <span class="quick-dir-label">快捷目录：</span>
+              <button class="btn-ghost" onclick="setEvalFolder('clean')" title="填入干净语音目录（data/exam）">干净</button>
+              <button class="btn-ghost" onclick="setEvalFolder('degraded')" title="填入退化语音目录（data/matrix）">退化</button>
+              <button class="btn-ghost" onclick="setEvalFolder('gtcrn')" title="填入 GTCRN 降噪产物目录">GTCRN</button>
+              <button class="btn-ghost" onclick="setEvalFolder('deepfilternet3')" title="填入 DeepFilterNet3 降噪产物目录">DF3</button>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;margin-top:12px;flex-wrap:wrap">
+          <button class="btn-primary" id="evBtn" onclick="runEvaluate()">开始评测</button>
+          <button class="btn-ghost" id="evCancel" onclick="cancelEvaluate()" style="display:none">取消</button>
+          <span class="muted-sm" id="evHint">链路对比：评干净 / 退化 / 降噪三份 → ΔPQ · 模型约 396MB 首次加载较慢</span>
+        </div>
         <div class="ev-progress" id="evProgress"><div class="ev-progress-track"><div class="ev-progress-bar" id="evProgressBar"></div></div><div class="muted-sm" id="evProgressText">准备评测…</div></div>
       </div>
       <div id="evResult"></div>
+    </div>
+
+    <!-- 07 闭环大脑详情视图 -->
+    <div id="view-loop" hidden>
+      <div class="page-head">
+        <div><h1>闭环大脑</h1><div class="subtitle">07 · LOOP · 归因 → 条件晋级 → LLM/规则建议 → 人在环</div></div>
+        <div class="head-actions">
+          <button class="btn-ghost" onclick="showLoopReport()">结论报告</button>
+          <span class="back" onclick="showView('overview')">← 返回总览</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="top"><div><span class="num">结论</span><h2>本轮判定</h2></div><span class="badge off" id="loopStatusBadge">待运行</span></div>
+        <div id="loopVerdict" class="muted-sm">先配置矩阵，点「跑一轮」开始闭环。</div>
+        <p class="muted-sm" style="margin-top:6px;color:var(--gray-400)">演示说明：本地不训练真实模型，「版本」用已有降噪模型代替，仅演示「版本迭代 → 曲线整体上行 → 定向调参 → 权衡」的工作流。</p>
+      </div>
+
+      <div class="card">
+        <div class="top"><div><span class="num">实验矩阵</span><h2>控制变量</h2></div><span class="badge on">可配置</span></div>
+        <div class="grid-2">
+          <div class="field"><label>语料 + 音色（固定）</label><select id="loopExam"></select></div>
+          <div class="field"><label>已验收版本（baseline）</label><select id="loopBaseline"></select></div>
+        </div>
+        <div class="field" style="margin-top:10px"><label>候选新版本（candidate）</label><select id="loopCandidate"></select></div>
+        <div class="field" style="margin-top:10px"><label>噪声场景（点击制灰 = 固定跳过）</label></div>
+        <div class="noise-grid" id="loopSceneGrid" style="margin-top:6px"></div>
+        <div style="display:flex;align-items:center;gap:12px;margin-top:12px;flex-wrap:wrap">
+          <button class="btn-primary" id="loopBtn" onclick="runLoop()">跑一轮</button>
+          <button class="btn-ghost" onclick="saveLoopConfig()">保存配置</button>
+          <span class="muted-sm" id="loopHint">版本迭代 · 默认噪声 6 场景 × 版本 2</span>
+        </div>
+        <div class="ev-progress" id="loopProgress"><div class="ev-progress-track"><div class="ev-progress-bar" id="loopProgressBar"></div></div><div class="muted-sm" id="loopProgressText">准备跑轮…</div></div>
+      </div>
+
+      <div id="loopDecisionCard"></div>
+
+      <div class="card" id="loopChartCard" style="display:none">
+        <div class="top"><div><span class="num">PQ 对比</span><h2>噪声 × 版本 折线</h2></div></div>
+        <div id="loopChart"></div>
+      </div>
+
+      <div class="card" id="loopLogCard" style="display:none">
+        <div class="top"><div><span class="num">历史</span><h2>迭代 changelog</h2></div></div>
+        <div id="loopChangelog"></div>
+      </div>
+
+      <div class="card" id="loopGoldenCard" style="display:none">
+        <div class="top"><div><span class="num">金标</span><h2>人工 A/B 试听验收</h2></div><span class="badge off">单评分者 · demo</span></div>
+        <div id="loopGolden"></div>
+      </div>
     </div>
   </main>
 
@@ -442,6 +532,43 @@
     <iframe id="dnFrame" class="lb-frame" referrerpolicy="no-referrer" translate="no" title="降噪 / 语音增强榜单"></iframe>
   </div>
 
+  <div class="sheet-mask" id="evSetMask" onclick="closeEvalSettings()"></div>
+  <div class="sheet narrow" id="evSetSheet">
+    <div class="sheet-head">
+      <div><span class="num">评估设置</span><h2>评分规则</h2></div>
+      <button class="sheet-close" onclick="closeEvalSettings()" title="关闭">×</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:14px;overflow:auto">
+      <div class="field"><label>批处理数量</label><input id="evBatch" type="number" min="1" max="16" value="4"></div>
+      <div class="field"><label>综合评分逻辑 <span class="disabled-hint">暂未启用 · 以 PQ 为主指标</span></label><select id="evOverallMode" onchange="onOverallModeChange()" disabled>
+        <option value="average">四项算术平均</option>
+        <option value="weighted">PQ/PC/CE/CU 加权平均</option>
+        <option value="custom">自定义公式</option>
+      </select></div>
+      <div id="evWeightsBox">
+        <div class="field"><label>维度权重</label></div>
+        <div class="ev-weights">
+          <div class="field"><label>PQ 制作质量</label><input id="wPQ" type="number" step="0.01" value="1.00"></div>
+          <div class="field"><label>PC 制作复杂度</label><input id="wPC" type="number" step="0.01" value="1.00"></div>
+          <div class="field"><label>CE 内容愉悦度</label><input id="wCE" type="number" step="0.01" value="1.00"></div>
+          <div class="field"><label>CU 内容实用性</label><input id="wCU" type="number" step="0.01" value="1.00"></div>
+        </div>
+      </div>
+      <div class="field" id="evCustomBox" style="display:none"><label>自定义公式</label><input id="evFormula" type="text" value="(PQ + PC + CE + CU) / 4"></div>
+      <div><div class="field"><label>评分等级（从高到低）</label></div><div id="evLevels"></div><button class="btn-ghost" style="margin-top:8px" onclick="addEvalLevel()">+ 添加等级</button></div>
+      <div style="display:flex;gap:10px"><button class="btn-primary" onclick="saveEvalSettings()">保存设置</button><button class="btn-ghost" onclick="closeEvalSettings()">取消</button></div>
+    </div>
+  </div>
+
+  <div class="sheet-mask" id="loopReportMask" onclick="closeLoopReport()"></div>
+  <div class="sheet" id="loopReportSheet">
+    <div class="sheet-head">
+      <div><span class="num">结论报告</span><h2>闭环大脑 Markdown</h2></div>
+      <button class="sheet-close" onclick="closeLoopReport()" title="关闭">×</button>
+    </div>
+    <pre id="loopReportBody" class="report-body"></pre>
+  </div>
+
 <script>
 let items = [];
 let voices = [];
@@ -459,8 +586,9 @@ function showView(name, anchor){
   document.getElementById("view-channel").hidden = name !== "channel";
   document.getElementById("view-denoise").hidden = name !== "denoise";
   document.getElementById("view-evaluate").hidden = name !== "evaluate";
+  document.getElementById("view-loop").hidden = name !== "loop";
   document.querySelectorAll(".nav-item").forEach(a=>a.classList.remove("active"));
-  const key = name === "overview" ? "◈总览" : (name === "voice" ? "02音色聚类" : (name === "tts" ? "03TTS合成" : (name === "channel" ? "04信道仿真" : (name === "denoise" ? "05降噪DUT" : (name === "evaluate" ? "06评测" : "◈总览")))));
+  const key = name === "overview" ? "◈总览" : (name === "voice" ? "02音色聚类" : (name === "tts" ? "03TTS合成" : (name === "channel" ? "04信道仿真" : (name === "denoise" ? "05降噪DUT" : (name === "evaluate" ? "06评测" : (name === "loop" ? "07闭环大脑" : "◈总览"))))));
   const navs = document.querySelectorAll(".nav-item");
   navs.forEach(a=>{ const txt=a.textContent.trim().replace(/\s+/g,""); if(txt.startsWith(key)) a.classList.add("active"); });
   if(name === "overview" && anchor){ const el=document.getElementById(anchor); if(el) el.scrollIntoView({behavior:"smooth"}); }
@@ -470,6 +598,8 @@ async function init(){
   initTts();
   initChannel();
   initDenoise();
+  initEvaluate();
+  initLoop();
   render();
 }
 
@@ -806,27 +936,64 @@ function openDenoiseLeaderboardExternal(){
 
 /* ---------- 06 评测 ---------- */
 let evalTimer = null;
-let evalRows = [];
-let evalModels = [];
-let evalSortKey = "degraded_pq";
+let evalMode = "comparison";
+let evalSettings = null;
+let evalDirs = {};
+let evalResult = null;
+let evalTab = "detail";
+let evalChartMetric = "overall";
+let evalSortKey = "overall";
 let evalSortDir = -1;
-function fmt(v){ return v==null ? "—" : Number(v).toFixed(2); }
-async function runEvaluate(){
+function fmt(v){ return v==null ? "—" : Number(v).toFixed(3); }
+async function initEvaluate(){
+  try{
+    const [s, dd] = await Promise.all([
+      fetch("/api/evaluate/settings").then(r=>r.json()),
+      fetch("/api/evaluate/dirs").then(r=>r.json())
+    ]);
+    evalSettings = s.settings || null;
+    evalDirs = dd.dirs || {};
+    fillEvalSettingsForm(evalSettings);
+  }catch(e){}
+}
+function setEvalMode(mode){
+  evalMode = mode;
+  document.querySelectorAll("#evalModeSeg .tab").forEach(b=>b.classList.toggle("active", b.dataset.mode===mode));
+  document.getElementById("evalFolderRow").style.display = mode==="directory" ? "block" : "none";
+  document.getElementById("evHint").textContent = mode==="comparison" ? "链路对比：评干净 / 退化 / 降噪三份 → ΔPQ · 模型约 396MB 首次加载较慢" : "目录评测：评目录里所有 wav 的四轴 + 综合评分 + 等级";
+}
+function setEvalFolder(kind){
+  const v = evalDirs[kind] || "";
+  if(v) document.getElementById("evalFolder").value = v;
+}
+function runEvaluate(){
   const btn = document.getElementById("evBtn"); btn.disabled=true; btn.textContent="评测中…";
+  document.getElementById("evCancel").style.display="";
   document.getElementById("evResult").innerHTML="";
   document.getElementById("evProgress").classList.add("show");
   document.getElementById("evProgressBar").style.width="0%";
   document.getElementById("evProgressText").textContent="准备评测…";
-  try{
-    const r = await fetch("/api/evaluate/run",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({batch_size:4})});
-    const d = await r.json();
-    if(d.status!=="ok"){ throw new Error(d.message||"启动失败"); }
-    evalTimer = setInterval(pollEvaluate, 1000);
-  }catch(e){
-    document.getElementById("evProgress").classList.remove("show");
-    btn.disabled=false; btn.textContent="开始评测";
-    document.getElementById("evResult").innerHTML=`<div class="panel"><div class="warn">启动失败：${esc(e.message)}</div></div>`;
-  }
+  const payload = { mode: evalMode, settings: evalSettings };
+  if(evalMode==="directory") payload.folder = document.getElementById("evalFolder").value.trim();
+  fetch("/api/evaluate/run",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)})
+    .then(r=>r.json())
+    .then(d=>{
+      if(d.status!=="ok") throw new Error(d.message||"启动失败");
+      evalTimer = setInterval(pollEvaluate, 1000);
+    })
+    .catch(e=>{
+      document.getElementById("evProgress").classList.remove("show");
+      document.getElementById("evCancel").style.display="none";
+      btn.disabled=false; btn.textContent="开始评测";
+      document.getElementById("evResult").innerHTML=`<div class="panel"><div class="warn">启动失败：${esc(e.message)}</div></div>`;
+    });
+}
+function cancelEvaluate(){
+  if(evalTimer){ clearInterval(evalTimer); evalTimer=null; }
+  document.getElementById("evProgress").classList.remove("show");
+  document.getElementById("evCancel").style.display="none";
+  const btn=document.getElementById("evBtn"); btn.disabled=false; btn.textContent="开始评测";
+  document.getElementById("evResult").innerHTML=`<div class="panel"><div class="warn">已取消，后台任务会自然结束。</div></div>`;
 }
 async function pollEvaluate(){
   try{
@@ -837,11 +1004,13 @@ async function pollEvaluate(){
     if(d.state==="done"){
       clearInterval(evalTimer); evalTimer=null;
       document.getElementById("evProgress").classList.remove("show");
+      document.getElementById("evCancel").style.display="none";
       const btn=document.getElementById("evBtn"); btn.disabled=false; btn.textContent="开始评测";
       renderEvaluateResults(d.result);
     }else if(d.state==="error"){
       clearInterval(evalTimer); evalTimer=null;
       document.getElementById("evProgress").classList.remove("show");
+      document.getElementById("evCancel").style.display="none";
       const btn=document.getElementById("evBtn"); btn.disabled=false; btn.textContent="开始评测";
       document.getElementById("evResult").innerHTML=`<div class="panel"><div class="warn">评测失败：${esc(d.message)}</div></div>`;
     }
@@ -852,78 +1021,463 @@ function renderEvaluateResults(result){
     document.getElementById("evResult").innerHTML=`<div class="panel"><div class="warn">${esc((result&&result.message)||"无结果")}</div></div>`;
     return;
   }
-  const s=result.summary||{};
-  const models=result.models||[];
-  evalModels=models;
-  evalRows=result.rows||[];
-  evalSortKey="degraded_pq"; evalSortDir=-1;
-  let statHtml=`<div class="ev-stats">
+  evalResult = result;
+  evalTab = "detail";
+  evalSortKey = "overall"; evalSortDir = -1;
+  evalChartMetric = "overall";
+  const cmp = result.comparison ? renderComparisonSummary(result.comparison) : "";
+  document.getElementById("evResult").innerHTML = `
+    ${cmp}
+    <div class="panel">
+      <div class="ev-toolbar">
+        <div class="tabs" id="evTabs">
+          <button class="tab active" data-tab="detail" onclick="setEvalTab('detail')">数据明细</button>
+          <button class="tab" data-tab="summary" onclick="setEvalTab('summary')">统计摘要</button>
+          <button class="tab" data-tab="chart" onclick="setEvalTab('chart')">可视化</button>
+        </div>
+        <button class="btn-ghost" onclick="exportEvalExcel()">导出 Excel</button>
+      </div>
+      <div id="evTabContent"></div>
+    </div>`;
+  renderEvalTab();
+}
+function renderComparisonSummary(comp){
+  const s = comp.summary||{};
+  const models = comp.models||[];
+  const rows = comp.rows||[];
+  let stat = `<div class="ev-stats">
     <div class="ev-stat"><div class="v">${fmt(s.clean_pq_avg)}</div><div class="l">干净 PQ 均</div></div>
     <div class="ev-stat"><div class="v">${fmt(s.degraded_pq_avg)}</div><div class="l">退化 PQ 均</div></div>`;
   models.forEach(m=>{
     const d=s[m+"_delta_avg"];
-    statHtml+=`<div class="ev-stat"><div class="v">${fmt(s[m+"_pq_avg"])}</div><div class="l">${esc(m)} PQ 均</div></div>
+    stat+=`<div class="ev-stat"><div class="v">${fmt(s[m+"_pq_avg"])}</div><div class="l">${esc(m)} PQ 均</div></div>
       <div class="ev-stat ${d==null?"":(d>=0?"up":"down")}"><div class="v">${d==null?"—":((d>0?"+":"")+fmt(d))}</div><div class="l">${esc(m)} ΔPQ 均</div></div>`;
   });
-  statHtml+="</div>";
-  const chart=buildEvalChart(s,models);
-  document.getElementById("evResult").innerHTML=`<div class="panel"><h3>统计摘要</h3>${statHtml}<div style="margin-top:18px"><h3 style="font-size:14px;margin-bottom:8px">平均 PQ 对比</h3>${chart}</div></div>
-    <div class="panel"><h3>降噪对比明细（${evalRows.length} 条）</h3><div id="evTableWrap">${evalTableHtml()}</div></div>`;
-}
-function buildEvalChart(s,models){
-  const cats=[{k:"clean_pq_avg",label:"干净",color:"#10B981"},{k:"degraded_pq_avg",label:"退化",color:"#F87171"}].concat(models.map((m,i)=>({k:m+"_pq_avg",label:m,color:["#8B5CF6","#0EA5E9"][i%2]})));
-  const vals=cats.map(c=>s[c.k]);
-  const valid=vals.filter(v=>v!=null);
-  const max=Math.max(10,...valid);
-  const w=Math.max(520,cats.length*120), h=250, pad=36;
-  const bw=(w-2*pad)/cats.length;
-  let inner="";
-  cats.forEach((c,i)=>{
-    const v=vals[i]; if(v==null) return;
-    const x=pad+i*bw+bw*0.22;
-    const hh=Math.max(2,(v/max)*(h-2*pad));
-    const y=h-pad-hh;
-    inner+=`<rect x="${x}" y="${y}" width="${bw*0.56}" height="${hh}" rx="7" fill="${c.color}"/><text x="${x+bw*0.28}" y="${y-7}" font-size="12" text-anchor="middle" fill="#374151" font-weight="600">${fmt(v)}</text><text x="${x+bw*0.28}" y="${h-pad+17}" font-size="12" text-anchor="middle" fill="#6B7280">${c.label}</text>`;
-  });
-  return `<svg class="chart" viewBox="0 0 ${w} ${h}"><line x1="${pad}" y1="${h-pad}" x2="${w-pad}" y2="${h-pad}" stroke="#E5E7EB"/><line x1="${pad}" y1="${pad}" x2="${pad}" y2="${h-pad}" stroke="#E5E7EB"/>${inner}</svg>`;
-}
-function setEvalSort(key){
-  if(evalSortKey===key){ evalSortDir*=-1; } else { evalSortKey=key; evalSortDir=-1; }
-  const el=document.getElementById("evTableWrap");
-  if(el) el.innerHTML=evalTableHtml();
-}
-function evalTableHtml(){
-  const models=evalModels;
-  const cols=[
-    {k:"noise_label",label:"场景"},
-    {k:"snr_db",label:"SNR dB"},
-    {k:"clean_pq",label:"干净 PQ"},
-    {k:"degraded_pq",label:"退化 PQ"},
-  ];
+  stat+="</div>";
+  const cols=[{k:"noise_label",label:"场景"},{k:"snr_db",label:"SNR dB"},{k:"clean_pq",label:"干净 PQ"},{k:"degraded_pq",label:"退化 PQ"}];
   models.forEach(m=>{ cols.push({k:m+"_pq",label:m+" PQ"}); cols.push({k:m+"_delta",label:m+" Δ"}); });
-  const rows=evalRows.slice().sort((a,b)=>{
+  const head=cols.map(c=>`<th>${c.label}</th>`).join("");
+  const body=rows.map(r=>{
+    const cells=cols.map(c=>{
+      const v=r[c.k];
+      if(c.k.endsWith("_delta")){ const n=Number(v); return `<td class="${isNaN(n)?"":(n>=0?"delta-up":"delta-down")}">${isNaN(n)?"—":((n>0?"+":"")+n.toFixed(3))}</td>`; }
+      if(c.k.endsWith("_pq")){ const n=Number(v); return `<td>${isNaN(n)?"—":Number(v).toFixed(3)}</td>`; }
+      return `<td>${esc(v??"")}</td>`;
+    }).join("");
+    return `<tr>${cells}</tr>`;
+  }).join("");
+  return `<div class="panel"><h3>降噪 ΔPQ 摘要</h3>${stat}<div style="margin-top:14px"><table class="ev-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div></div>`;
+}
+function setEvalTab(tab){
+  evalTab=tab;
+  document.querySelectorAll("#evTabs .tab").forEach(b=>b.classList.toggle("active", b.dataset.tab===tab));
+  renderEvalTab();
+}
+function renderEvalTab(){
+  const c=document.getElementById("evTabContent");
+  if(!c) return;
+  if(evalTab==="summary") c.innerHTML=renderEvalSummary();
+  else if(evalTab==="chart") c.innerHTML=renderEvalChart();
+  else c.innerHTML=renderEvalDetail();
+}
+function evalDetailTable(){
+  const files = evalResult.files||[];
+  const cols=[
+    {k:"filename",label:"文件名",type:"str"},
+    {k:"source",label:"来源",type:"str"},
+    {k:"pq",label:"PQ 制作质量",type:"num"},
+    {k:"pc",label:"PC 制作复杂度",type:"num"},
+    {k:"ce",label:"CE 内容愉悦度",type:"num"},
+    {k:"cu",label:"CU 内容实用性",type:"num"},
+    {k:"overall",label:"综合评分",type:"num",muted:true},
+    {k:"level",label:"等级",type:"level"},
+  ];
+  const rows=files.slice().sort((a,b)=>{
     const av=a[evalSortKey], bv=b[evalSortKey];
     const an=Number(av), bn=Number(bv);
     if(!isNaN(an)&&!isNaN(bn)) return (an-bn)*evalSortDir;
     return String(av??"").localeCompare(String(bv??""))*evalSortDir;
   });
-  const head=cols.map(c=>`<th onclick="setEvalSort('${c.k}')">${c.label}${evalSortKey===c.k?(evalSortDir<0?" ↓":" ↑"):""}</th>`).join("");
+  const head=cols.map(c=>`<th onclick="setEvalSort('${c.k}')">${c.label}${c.muted?' <span class="muted-col">暂未启用</span>':""}${evalSortKey===c.k?(evalSortDir<0?" ↓":" ↑"):""}</th>`).join("");
   const body=rows.map(r=>{
     const cells=cols.map(c=>{
-      const v=r[c.k];
-      if(c.k.endsWith("_delta")){
-        const n=Number(v);
-        return `<td class="${isNaN(n)?"":(n>=0?"delta-up":"delta-down")}">${isNaN(n)?"—":((n>0?"+":"")+n.toFixed(2))}</td>`;
-      }
-      if(c.k.endsWith("_pq")){
-        const n=Number(v);
-        return `<td>${isNaN(n)?"—":Number(v).toFixed(2)}</td>`;
-      }
-      return `<td>${esc(v??"")}</td>`;
+      if(c.type==="level") return `<td><span class="metric-badge" style="background:${esc(r.level_color||'#94A3B8')}">${esc(r.level)}</span></td>`;
+      if(c.type==="num"){ const n=Number(r[c.k]); return `<td class="${c.muted?"muted-col":""}">${isNaN(n)?"—":Number(r[c.k]).toFixed(3)}</td>`; }
+      return `<td>${esc(r[c.k]??"")}</td>`;
     }).join("");
     return `<tr>${cells}</tr>`;
   }).join("");
   return `<table class="ev-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+}
+function renderEvalDetail(){ return `<div id="evTableWrap">${evalDetailTable()}</div>`; }
+function setEvalSort(key){
+  if(evalSortKey===key){ evalSortDir*=-1; } else { evalSortKey=key; evalSortDir=-1; }
+  const el=document.getElementById("evTableWrap");
+  if(el) el.innerHTML=evalDetailTable();
+}
+function renderEvalSummary(){
+  const st=evalResult.stats||{};
+  const cards=[
+    {v:fmt(st.avg),l:"PQ 平均",e:""},
+    {v:fmt(st.max),l:"PQ 最高",e:st.max_file||""},
+    {v:fmt(st.min),l:"PQ 最低",e:st.min_file||""},
+    {v:fmt(st.std),l:"PQ 标准差",e:""},
+  ];
+  return `<div class="ev-stats">${cards.map(c=>`<div class="ev-stat"><div class="v">${c.v}</div><div class="l">${c.l}</div><div class="muted-sm" style="margin-top:2px;word-break:break-all">${esc(c.e)}</div></div>`).join("")}</div>`;
+}
+function setEvalChartMetric(k){ evalChartMetric=k; renderEvalTab(); }
+function renderEvalChart(){
+  const files=evalResult.files||[];
+  const metrics=[["pq","PQ"],["pc","PC"],["ce","CE"],["cu","CU"],["overall","综合"]];
+  const seg=`<div class="tabs">${metrics.map(([k,l])=> k==="overall"
+    ? `<button class="tab disabled" title="综合评分暂未启用">${l} · 暂未启用</button>`
+    : `<button class="tab ${evalChartMetric===k?"active":""}" onclick="setEvalChartMetric('${k}')">${l}</button>`).join("")}</div>`;
+  if(!files.length) return `<div style="display:flex;flex-direction:column;gap:12px">${seg}<div class="muted-sm">无数据</div></div>`;
+  const sorted=files.slice().sort((a,b)=>Number(b[evalChartMetric]||0)-Number(a[evalChartMetric]||0)).slice(0,24);
+  const vals=sorted.map(f=>Number(f[evalChartMetric]||0));
+  const max=Math.max(10,...vals);
+  const w=Math.max(520,sorted.length*34+120), h=260, pad=34;
+  const bw=(w-2*pad)/sorted.length;
+  let inner="";
+  sorted.forEach((f,i)=>{
+    const v=vals[i]; if(v==null) return;
+    const x=pad+i*bw;
+    const hh=Math.max(2,(v/max)*(h-2*pad));
+    const y=h-pad-hh;
+    inner+=`<rect x="${x+2}" y="${y}" width="${Math.max(3,bw-4)}" height="${hh}" rx="3" fill="${esc(f.level_color||'#8B5CF6')}"><title>${esc(f.filename)} · ${Number(v).toFixed(3)}</title></rect>`;
+    if(sorted.length<=16) inner+=`<text x="${x+bw/2}" y="${y-5}" font-size="10" text-anchor="middle" fill="#6B7280">${Number(v).toFixed(1)}</text>`;
+  });
+  const svg=`<svg class="chart" viewBox="0 0 ${w} ${h}" style="min-width:${w}px;height:260px"><line x1="${pad}" y1="${h-pad}" x2="${w-pad}" y2="${h-pad}" stroke="#E5E7EB"/><line x1="${pad}" y1="${pad}" x2="${pad}" y2="${h-pad}" stroke="#E5E7EB"/>${inner}</svg>`;
+  return `<div style="display:flex;flex-direction:column;gap:12px">${seg}<div style="overflow-x:auto">${svg}</div></div>`;
+}
+function exportEvalExcel(){ window.open("/api/evaluate/export","_blank"); }
+function openEvalSettings(){
+  fillEvalSettingsForm(evalSettings);
+  document.getElementById("evSetMask").classList.add("open");
+  document.getElementById("evSetSheet").classList.add("open");
+  document.body.style.overflow="hidden";
+}
+function closeEvalSettings(){
+  document.getElementById("evSetMask").classList.remove("open");
+  document.getElementById("evSetSheet").classList.remove("open");
+  document.body.style.overflow="";
+}
+function fillEvalSettingsForm(s){
+  if(!s) return;
+  document.getElementById("evBatch").value=s.batch_size??4;
+  document.getElementById("evOverallMode").value=s.overall_mode||"average";
+  const w=s.weights||{};
+  document.getElementById("wPQ").value=w.PQ??1;
+  document.getElementById("wPC").value=w.PC??1;
+  document.getElementById("wCE").value=w.CE??1;
+  document.getElementById("wCU").value=w.CU??1;
+  document.getElementById("evFormula").value=s.custom_formula||"(PQ + PC + CE + CU) / 4";
+  onOverallModeChange();
+  renderEvalLevels(s.levels||null);
+}
+function onOverallModeChange(){
+  // 综合评分暂未启用：权重与自定义公式一并隐藏
+  document.getElementById("evWeightsBox").style.display = "none";
+  document.getElementById("evCustomBox").style.display = "none";
+}
+function renderEvalLevels(levels){
+  let list=(levels&&levels.length)?levels:[
+    {min:4,label:"优秀",color:"#34D399"},{min:3,label:"良好",color:"#60A5FA"},{min:2,label:"一般",color:"#FBBF24"},{min:0,label:"较差",color:"#F87171"}
+  ];
+  const sorted=list.slice().sort((a,b)=>Number(b.min)-Number(a.min));
+  document.getElementById("evLevels").innerHTML=sorted.map(lv=>`
+    <div class="level-row">
+      <input type="color" value="${esc(lv.color||'#A855F7')}" title="等级颜色">
+      <input type="number" step="0.1" value="${esc(lv.min)}" title="阈值 ≥">
+      <input type="text" value="${esc(lv.label||'')}" placeholder="等级名称">
+      <button class="level-del" onclick="removeEvalLevel(this)" title="删除">×</button>
+    </div>`).join("");
+}
+function addEvalLevel(){
+  const div=document.createElement("div");
+  div.className="level-row";
+  div.innerHTML=`<input type="color" value="#A855F7" title="等级颜色"><input type="number" step="0.1" value="1.0" title="阈值 ≥"><input type="text" value="新等级" placeholder="等级名称"><button class="level-del" onclick="removeEvalLevel(this)" title="删除">×</button>`;
+  document.getElementById("evLevels").appendChild(div);
+}
+function removeEvalLevel(btn){ btn.closest(".level-row").remove(); }
+function saveEvalSettings(){
+  const weights={PQ:Number(document.getElementById("wPQ").value)||1,PC:Number(document.getElementById("wPC").value)||1,CE:Number(document.getElementById("wCE").value)||1,CU:Number(document.getElementById("wCU").value)||1};
+  const levels=[...document.querySelectorAll("#evLevels .level-row")].map(row=>{
+    const inputs=row.querySelectorAll("input");
+    return {color:inputs[0].value, min:Number(inputs[1].value)||0, label:inputs[2].value.trim()||"等级"};
+  }).sort((a,b)=>b.min-a.min);
+  evalSettings={
+    batch_size:Math.max(1,Math.min(16,parseInt(document.getElementById("evBatch").value)||4)),
+    overall_mode:document.getElementById("evOverallMode").value,
+    weights,
+    custom_formula:document.getElementById("evFormula").value.trim()||"(PQ + PC + CE + CU) / 4",
+    levels,
+  };
+  fetch("/api/evaluate/settings",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({settings:evalSettings})})
+    .then(r=>r.json())
+    .then(d=>{ if(d.status==="ok"){ closeEvalSettings(); } else { alert(d.message||"保存失败"); } })
+    .catch(e=>alert("保存失败："+e.message));
+}
+
+/* ---------- 07 闭环大脑 ---------- */
+let loopOptions = null;
+let loopSceneEnabled = {};
+let loopTimer = null;
+let loopLastResult = null;
+async function initLoop(){
+  try{
+    const [opts, status] = await Promise.all([
+      fetch("/api/loop/options").then(r=>r.json()),
+      fetch("/api/loop/status").then(r=>r.json())
+    ]);
+    loopOptions = opts;
+    renderLoopConfig(opts, status);
+    renderLoopState(status);
+  }catch(e){}
+}
+function renderLoopConfig(opts, status){
+  const exam = document.getElementById("loopExam");
+  exam.innerHTML = `<option value="">自动（全部语料×音色）</option>` + (opts.exams||[]).map(e=>`<option value="${esc(e.stem)}" ${((status.config?.matrix?.exam)===e.stem?"selected":"")}>${esc(e.name)}</option>`).join("");
+  const versions = opts.versions||[];
+  const bSel = document.getElementById("loopBaseline");
+  bSel.innerHTML = versions.map(v=>`<option value="${esc(v.id)}" ${status.baseline===v.id?"selected":""}>${esc(v.label)}</option>`).join("");
+  const cSel = document.getElementById("loopCandidate");
+  cSel.innerHTML = versions.map(v=>`<option value="${esc(v.id)}" ${status.candidate===v.id?"selected":""}>${esc(v.label)}</option>`).join("");
+  const scenes = opts.scenes||[];
+  const cfgScenes = status.config?.matrix?.noise_scenes;
+  scenes.forEach(s=>{ loopSceneEnabled[s.id] = (!cfgScenes || cfgScenes.length===0) ? true : cfgScenes.includes(s.id); });
+  renderLoopScenes(scenes);
+}
+function renderLoopScenes(scenes){
+  const grid = document.getElementById("loopSceneGrid");
+  grid.innerHTML = scenes.map(s=>{
+    const on = loopSceneEnabled[s.id] !== false;
+    return `<div class="noise-tile n-${esc(s.id)} ${on?"":"off"}" onclick="toggleLoopScene('${esc(s.id)}')">
+      <div class="nt-top"><span class="nt-name">${esc(s.label)}</span><span class="nt-state">${on?"放开":"固定"}</span></div>
+      <div class="nt-meta"><span>SNR ${s.snr_db} dB</span></div>
+    </div>`;
+  }).join("");
+}
+function toggleLoopScene(id){
+  loopSceneEnabled[id] = loopSceneEnabled[id] === false;
+  renderLoopScenes(loopOptions?.scenes || []);
+}
+async function saveLoopConfig(){
+  const exam = document.getElementById("loopExam").value;
+  const baseline = document.getElementById("loopBaseline").value;
+  const candidate = document.getElementById("loopCandidate").value;
+  const noise_scenes = Object.keys(loopSceneEnabled).filter(k=>loopSceneEnabled[k]);
+  const config = { matrix: { exam: exam||null, noise_scenes } };
+  const r = await fetch("/api/loop/config",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({config, baseline, candidate})});
+  return await r.json();
+}
+async function runLoop(){
+  const btn = document.getElementById("loopBtn"); btn.disabled=true; btn.textContent="跑轮中…";
+  document.getElementById("loopProgress").classList.add("show");
+  document.getElementById("loopProgressBar").style.width="0%";
+  document.getElementById("loopProgressText").textContent="准备跑轮…";
+  document.getElementById("loopDecisionCard").innerHTML="";
+  document.getElementById("loopChartCard").style.display="none";
+  document.getElementById("loopGoldenCard").style.display="none";
+  try{
+    await saveLoopConfig();
+    const r = await fetch("/api/loop/run",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({})});
+    const d = await r.json();
+    if(d.status!=="ok") throw new Error(d.message||"启动失败");
+    loopTimer = setInterval(pollLoopJob, 1000);
+  }catch(e){
+    document.getElementById("loopProgress").classList.remove("show");
+    btn.disabled=false; btn.textContent="跑一轮";
+    document.getElementById("loopDecisionCard").innerHTML=`<div class="card"><div class="warn">启动失败：${esc(e.message)}</div></div>`;
+  }
+}
+async function pollLoopJob(){
+  try{
+    const r = await fetch("/api/loop/job"); const d = await r.json();
+    const pct = Math.max(0, Math.min(100, d.progress||0));
+    document.getElementById("loopProgressBar").style.width = pct+"%";
+    document.getElementById("loopProgressText").textContent = d.message + (d.total?` · ${pct}%`:"");
+    if(d.state==="done"){
+      clearInterval(loopTimer); loopTimer=null;
+      document.getElementById("loopProgress").classList.remove("show");
+      const btn=document.getElementById("loopBtn"); btn.disabled=false; btn.textContent="跑一轮";
+      if(d.result && d.result.status==="ok"){
+        loopLastResult = d.result;
+        renderLoopResult(d.result);
+        const status = await (await fetch("/api/loop/status")).json();
+        renderLoopState(status);
+      }else{
+        document.getElementById("loopDecisionCard").innerHTML=`<div class="card"><div class="warn">${esc((d.result&&d.result.message)||d.message)}</div></div>`;
+      }
+    }else if(d.state==="error"){
+      clearInterval(loopTimer); loopTimer=null;
+      document.getElementById("loopProgress").classList.remove("show");
+      const btn=document.getElementById("loopBtn"); btn.disabled=false; btn.textContent="跑一轮";
+      document.getElementById("loopDecisionCard").innerHTML=`<div class="card"><div class="warn">跑轮失败：${esc(d.message)}</div></div>`;
+    }
+  }catch(e){}
+}
+function renderLoopState(status){
+  const badge = document.getElementById("loopStatusBadge");
+  const map = {idle:"待运行", running:"进行中", pending_decision:"待确认", converged:"已收敛", no_solution:"无解"};
+  badge.textContent = map[status.status] || status.status || "待运行";
+  badge.className = "badge " + (status.status==="converged" ? "on" : "off");
+  const v = document.getElementById("loopVerdict");
+  if(status.last_judge){
+    v.innerHTML = verdictHtml(status.last_judge, status.baseline, status.candidate);
+  }else if(status.conclusion){
+    v.innerHTML = `<span class="muted-sm">${esc(status.conclusion)}</span>`;
+  }else{
+    v.innerHTML = `<span class="muted-sm">先配置矩阵，点「跑一轮」开始闭环。</span>`;
+  }
+  renderLoopChangelog(status.changelog||[]);
+  if(status.status==="pending_decision" && status.rounds && status.rounds.length){
+    const last = status.rounds[status.rounds.length-1];
+    loopLastResult = { baseline:last.baseline, candidate:last.candidate, rows:last.rows, decision:last.decision, judge:last.judge };
+    renderLoopResult(loopLastResult);
+  }
+}
+function verdictHtml(j, baseline, candidate){
+  const ok = j.verdict!=="回滚";
+  const delta = j.regular_delta;
+  const extremeNote = j.extreme_bypass ? ` · 极端档 90dB 旁路（Δ=${j.extreme_delta}）` : "";
+  const story = j.verdict==="回滚"
+    ? `新版本 ${candidate} 曲线未整体上行（常规平均比已验收版本 ${baseline} 低 ${Math.abs(delta).toFixed(3)} 分），回滚。`
+    : `新版本 ${candidate} 曲线整体上行（常规平均比已验收版本 ${baseline} 高 ${delta.toFixed(3)} 分），晋级。`;
+  const retreatNote = (j.regular_retreat && j.verdict!=="回滚") ? `其中 ${j.regular_retreat} 个常规场景回退，图中已标黄。` : "";
+  return `<div style="display:flex;flex-direction:column;gap:8px">
+    <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+      <span class="badge ${ok?"on":"off"}">${esc(j.verdict)}</span>
+      <span>${esc(baseline)} vs ${esc(candidate)}</span>
+      <span>常规 Δ=${(delta>0?"+":"")+fmt(delta)} · p=${j.regular_p==null?"—":j.regular_p.toFixed(4)}</span>
+      <span class="muted-sm">${extremeNote}</span>
+    </div>
+    <span class="muted-sm">${esc(story)} ${esc(retreatNote)}</span>
+  </div>`;
+}
+function renderLoopResult(result){
+  const d = result.decision;
+  if(d){
+    const actionLabel = {accept:"接受此版本（晋级）", iterate:"回滚，迭代下一版", no_solution:"确认无解"};
+    document.getElementById("loopDecisionCard").innerHTML = `<div class="card">
+      <div class="top"><div><span class="num">人在环</span><h2>大脑建议（${d.llm?"DeepSeek 决策":"规则兜底"}）</h2></div></div>
+      <p style="margin-top:6px"><b>${esc(d.hypothesis)}</b></p>
+      <p class="muted-sm">${esc(d.reason)}</p>
+      <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap">
+        <button class="btn-primary" onclick="applyLoopDecision()">${actionLabel[d.action]||"确认执行"}</button>
+        <button class="btn-ghost" onclick="applyLoopDecision('reject')">驳回</button>
+      </div>
+    </div>`;
+  }
+  document.getElementById("loopChartCard").style.display="block";
+  document.getElementById("loopChart").innerHTML = loopChartHtml(result);
+  document.getElementById("loopGoldenCard").style.display="block";
+  document.getElementById("loopGolden").innerHTML = goldenHtml(result);
+}
+function loopChartHtml(result){
+  const rows = result.rows||[];
+  const baseline = result.baseline, candidate = result.candidate;
+  const deg = rows.map(r=>r.degraded_pq);
+  const b = rows.map(r=>r.baseline_pq);
+  const c = rows.map(r=>r.candidate_pq);
+  const all = [...deg, ...b, ...c];
+  const lo = Math.max(0, Math.floor(Math.min(...all)) - 0.5);
+  const hi = Math.min(10, Math.ceil(Math.max(...all)) + 0.5);
+  const w = Math.max(600, rows.length*110), h=290, padL=46, padR=16, padT=20, padB=42;
+  const x = i => padL + (rows.length<=1 ? (w-padL-padR)/2 : i*(w-padL-padR)/(rows.length-1));
+  const y = v => padT + (hi-v)/(hi-lo)*(h-padT-padB);
+  const line = (vals,color)=>vals.map((v,i)=>`${i?"L":"M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
+  let ticks = "";
+  for(let t=Math.ceil(lo); t<=Math.floor(hi); t++){
+    ticks += `<line x1="${padL}" y1="${y(t).toFixed(1)}" x2="${w-padR}" y2="${y(t).toFixed(1)}" stroke="#F1F5F9"/><text x="${padL-8}" y="${(y(t)+4).toFixed(1)}" font-size="11" text-anchor="end" fill="#6B7280">${t}</text>`;
+  }
+  return `<div style="overflow-x:auto"><svg class="chart" viewBox="0 0 ${w} ${h}" style="min-width:${w}px;height:290px">
+    <text x="14" y="${padT+10}" font-size="11" fill="#6B7280" transform="rotate(-90 14 ${padT+10})">PQ</text>
+    ${ticks}
+    <path d="${line(deg,'#94A3B8')}" fill="none" stroke="#94A3B8" stroke-width="2" stroke-dasharray="5 4"/>
+    <path d="${line(b,'#8B5CF6')}" fill="none" stroke="#8B5CF6" stroke-width="2.5"/>
+    <path d="${line(c,'#14B8A6')}" fill="none" stroke="#14B8A6" stroke-width="2.5"/>
+    ${rows.map((r,i)=>`<circle cx="${x(i).toFixed(1)}" cy="${y(r.degraded_pq).toFixed(1)}" r="3" fill="#94A3B8"><title>${esc(r.noise_label)} · 退化 PQ=${r.degraded_pq}</title></circle><circle cx="${x(i).toFixed(1)}" cy="${y(r.baseline_pq).toFixed(1)}" r="4" fill="#8B5CF6"><title>${esc(r.noise_label)} · baseline PQ=${r.baseline_pq}</title></circle><circle cx="${x(i).toFixed(1)}" cy="${y(r.candidate_pq).toFixed(1)}" r="4" fill="${r.candidate_pq < r.baseline_pq ? "#F59E0B" : "#14B8A6"}"><title>${esc(r.noise_label)} · candidate PQ=${r.candidate_pq}${r.candidate_pq < r.baseline_pq ? "（回退）" : ""}</title></circle><text x="${x(i).toFixed(1)}" y="${h-18}" font-size="11" text-anchor="middle" fill="#6B7280">${esc(r.noise_label)}</text>`).join("")}
+  </svg></div>
+  <div style="display:flex;gap:16px;margin-top:6px;flex-wrap:wrap">
+    <span><span style="color:#94A3B8">- -</span> 退化语音</span>
+    <span><span style="color:#8B5CF6">●</span> 已验收版本 ${esc(baseline)}（降噪比例 ${result.baseline_strength}）</span>
+    <span><span style="color:#14B8A6">●</span> 候选新版本 ${esc(candidate)}（降噪比例 ${result.candidate_strength}）</span>
+    <span><span style="color:#F59E0B">●</span> 候选回退（低于已验收）</span>
+    <span class="muted-sm">纵轴：PQ 制作质量（1~10，越高越好）</span>
+  </div>`;
+}
+function goldenHtml(result){
+  const rows = result.rows||[];
+  const opts = rows.map(r=>`<option value="${esc(r.stem)}">${esc(r.noise_label)}（SNR ${r.snr_db}dB）</option>`).join("");
+  return `<div class="field"><label>选择噪声场景</label><select id="goldenScene" onchange="renderGoldenPair()">${opts}</select></div>
+    <div id="goldenPair" style="margin-top:10px"></div>
+    <div id="goldenScore" style="margin-top:10px"></div>`;
+}
+function renderGoldenPair(){
+  const stem = document.getElementById("goldenScene")?.value;
+  if(!stem || !loopLastResult) return;
+  const row = (loopLastResult.rows||[]).find(x=>x.stem===stem);
+  if(!row) return;
+  const b = loopLastResult.baseline, c = loopLastResult.candidate;
+  const bModel = row.baseline_model, cModel = row.candidate_model;
+  document.getElementById("goldenPair").innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div><div class="muted-sm">A · 已验收（${esc(b)}）</div><audio controls src="/api/denoise/audio/${encodeURIComponent(bModel)}/${encodeURIComponent(row.baseline_file)}" style="width:100%"></audio></div>
+      <div><div class="muted-sm">B · 候选（${esc(c)}）</div><audio controls src="/api/denoise/audio/${encodeURIComponent(cModel)}/${encodeURIComponent(row.candidate_file)}" style="width:100%"></audio></div>
+    </div>
+    <div class="muted-sm" style="margin-top:10px">参考：退化语音</div>
+    <audio controls src="/api/channel/audio/${encodeURIComponent(row.degraded_file)}" style="width:100%;margin-top:4px"></audio>`;
+  document.getElementById("goldenScore").innerHTML = `<div style="display:flex;gap:10px;margin-top:10px">
+    <button class="btn-ghost" onclick="submitGolden('A')">A 更好</button>
+    <button class="btn-ghost" onclick="submitGolden('B')">B 更好</button>
+    <button class="btn-ghost" onclick="submitGolden('tie')">持平</button>
+  </div>`;
+}
+function submitGolden(pick){
+  const label = pick==="A"?"A（baseline）更好":pick==="B"?"B（candidate）更好":"持平";
+  document.getElementById("goldenScore").innerHTML = `<div class="ok-hint" style="margin-top:10px">已记录：${label} · 单评分者 demo</div>`;
+}
+function renderLoopChangelog(logs){
+  const el = document.getElementById("loopChangelog");
+  if(!logs || !logs.length){
+    el.innerHTML = `<span class="muted-sm">暂无迭代记录。</span>`;
+    document.getElementById("loopLogCard").style.display="none";
+    return;
+  }
+  document.getElementById("loopLogCard").style.display="block";
+  el.innerHTML = logs.map(l=>`<div style="padding:8px 0;border-top:1px solid var(--gray-200)"><span class="muted-sm">${esc(l)}</span></div>`).join("");
+}
+function applyLoopDecision(mode){
+  let decision;
+  if(mode==="reject"){
+    decision = {action:"reject"};
+  }else{
+    decision = loopLastResult?.decision;
+    if(!decision) return;
+  }
+  fetch("/api/loop/apply",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({decision})})
+    .then(r=>r.json())
+    .then(s=>{
+      document.getElementById("loopDecisionCard").innerHTML="";
+      renderLoopState(s);
+      document.getElementById("loopChartCard").style.display="none";
+      document.getElementById("loopGoldenCard").style.display="none";
+    });
+}
+async function showLoopReport(){
+  try{
+    const r = await fetch("/api/loop/report"); const d = await r.json();
+    document.getElementById("loopReportBody").textContent = d.markdown||"";
+    document.getElementById("loopReportMask").classList.add("open");
+    document.getElementById("loopReportSheet").classList.add("open");
+    document.body.style.overflow="hidden";
+  }catch(e){}
+}
+function closeLoopReport(){
+  document.getElementById("loopReportMask").classList.remove("open");
+  document.getElementById("loopReportSheet").classList.remove("open");
+  document.body.style.overflow="";
 }
 
 /* ---------- 02 音色聚类 ---------- */
@@ -998,7 +1552,7 @@ function matrixTable(d){
 }
 init();
 const initialView = new URLSearchParams(location.search).get("view");
-if (initialView === "voice" || initialView === "tts" || initialView === "channel" || initialView === "denoise" || initialView === "evaluate") showView(initialView);
+if (initialView === "voice" || initialView === "tts" || initialView === "channel" || initialView === "denoise" || initialView === "evaluate" || initialView === "loop") showView(initialView);
 </script>
 </body>
 </html>

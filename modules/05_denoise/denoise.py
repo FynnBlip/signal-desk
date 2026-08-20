@@ -18,6 +18,13 @@ import onnxruntime as ort
 import soundfile as sf
 import torch
 
+try:
+    import noisereduce
+    HAS_NOISEREDUCE = True
+except Exception:  # pragma: no cover - 环境缺包时降级为不可用
+    noisereduce = None
+    HAS_NOISEREDUCE = False
+
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 MODEL_DIR = PROJECT_ROOT / "data" / "models" / "denoise"
 MATRIX_DIR = PROJECT_ROOT / "data" / "matrix"
@@ -30,10 +37,12 @@ MODEL_FILES = {
 MODEL_SAMPLE_RATES = {
     "gtcrn": 16000,
     "deepfilternet3": 48000,
+    "noisereduce": None,
 }
 MODEL_LABELS = {
     "gtcrn": "GTCRN · 16kHz 通话流式",
     "deepfilternet3": "DeepFilterNet3 · 48kHz 全带",
+    "noisereduce": "NoiseReduce · 谱门控（prop_decrease 强度旋钮）",
 }
 
 
@@ -115,6 +124,38 @@ def _denoise_deepfilternet3(audio, session, atten_lim_db=0.0):
     return enhanced_audio.squeeze(0).numpy().astype("float32")
 
 
+def _denoise_noisereduce(audio, sr, prop_decrease=1.0):
+    """NoiseReduce 谱门控降噪：prop_decrease 是真实、可引用的强度旋钮。
+
+    1.0 = 100% 降噪，0.0 = 不降噪。非平稳模式，按输入采样率直接工作，
+    不依赖 GPU；论文：Sainburg et al. 2020（PLoS Comp Bio），DOI 10.5281/zenodo.3243139。
+    """
+    if not HAS_NOISEREDUCE:
+        raise RuntimeError("noisereduce 未安装，请先 pip install noisereduce")
+    n_fft = 512 if sr <= 16000 else 1024
+    enhanced = noisereduce.reduce_noise(
+        y=audio,
+        sr=sr,
+        stationary=False,
+        prop_decrease=prop_decrease,
+        n_fft=n_fft,
+    )
+    enhanced = np.asarray(enhanced, dtype="float32")
+    n = min(len(audio), len(enhanced))
+    enhanced = enhanced[:n]
+    if n < len(audio):
+        enhanced = np.pad(enhanced, (0, len(audio) - n))
+    return enhanced
+
+
+def list_model_ids():
+    """返回全部可用模型 id（ONNX 模型 + NoiseReduce 算法）。"""
+    ids = list(MODEL_FILES.keys())
+    if HAS_NOISEREDUCE:
+        ids.append("noisereduce")
+    return ids
+
+
 def load_model(model_name):
     """加载 onnxruntime 会话，返回 (session, work_sr)。"""
     if model_name not in MODEL_FILES:
@@ -131,30 +172,41 @@ def process(input_wav, output_wav, version_spec=None, session=None):
     spec = dict(version_spec or {})
     model_name = spec.get("model", "gtcrn")
     atten_lim_db = float(spec.get("atten_lim_db", 0.0))
-
-    if session is None:
-        session, work_sr = load_model(model_name)
-    else:
-        work_sr = MODEL_SAMPLE_RATES[model_name]
+    strength = float(spec.get("strength", 1.0))
 
     audio, in_sr = sf.read(str(input_wav), dtype="float32")
     if audio.ndim > 1:
         audio = audio.mean(axis=1)
 
-    if in_sr != work_sr:
-        audio_work = librosa.resample(audio, orig_sr=in_sr, target_sr=work_sr)
+    if model_name == "noisereduce":
+        # NoiseReduce 用自己的强度旋钮 prop_decrease，按输入采样率直接工作，不重采样。
+        enhanced = _denoise_noisereduce(audio, in_sr, prop_decrease=strength)
+        work_sr = in_sr
     else:
-        audio_work = audio
+        if session is None:
+            session, work_sr = load_model(model_name)
+        else:
+            work_sr = MODEL_SAMPLE_RATES[model_name]
 
-    if model_name == "gtcrn":
-        enhanced_work = _denoise_gtcrn(audio_work, session)
-    else:
-        enhanced_work = _denoise_deepfilternet3(audio_work, session, atten_lim_db)
+        if in_sr != work_sr:
+            audio_work = librosa.resample(audio, orig_sr=in_sr, target_sr=work_sr)
+        else:
+            audio_work = audio
 
-    if in_sr != work_sr:
-        enhanced = librosa.resample(enhanced_work, orig_sr=work_sr, target_sr=in_sr)
-    else:
-        enhanced = enhanced_work
+        if model_name == "gtcrn":
+            enhanced_work = _denoise_gtcrn(audio_work, session)
+        else:
+            enhanced_work = _denoise_deepfilternet3(audio_work, session, atten_lim_db)
+
+        if in_sr != work_sr:
+            enhanced = librosa.resample(enhanced_work, orig_sr=work_sr, target_sr=in_sr)
+        else:
+            enhanced = enhanced_work
+
+        # ONNX 模型没有原生强度旋钮，暂用湿/干混合演示；NoiseReduce 走 prop_decrease。
+        if strength < 1.0:
+            n = min(len(audio), len(enhanced))
+            enhanced = enhanced[:n] * strength + audio[:n] * (1.0 - strength)
 
     out_path = Path(output_wav)
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -187,6 +239,16 @@ def list_models():
                 "ready": path.exists(),
             }
         )
+    models.append(
+        {
+            "id": "noisereduce",
+            "name": MODEL_LABELS.get("noisereduce", "noisereduce"),
+            "file": "noisereduce (pip)",
+            "work_sample_rate": MODEL_SAMPLE_RATES["noisereduce"],
+            "bytes": 0,
+            "ready": HAS_NOISEREDUCE,
+        }
+    )
     return models
 
 
@@ -197,22 +259,24 @@ def list_inputs():
     return [{"name": p.name, "path": str(p)} for p in sorted(MATRIX_DIR.glob("*.wav"))]
 
 
-def run(input_wav, model="gtcrn"):
+def run(input_wav, model="gtcrn", strength=1.0):
     """对一条 degraded wav 跑降噪，落盘并按模型追加 CSV。"""
+    strength = float(strength)
     input_wav = Path(input_wav)
     if not input_wav.exists():
         return {"status": "error", "message": f"输入 wav 不存在：{input_wav}"}
-    if model not in MODEL_FILES:
+    if model not in list_model_ids():
         return {
             "status": "error",
-            "message": f"未知模型：{model}，可选 {list(MODEL_FILES.keys())}",
+            "message": f"未知模型：{model}，可选 {list_model_ids()}",
         }
 
     out_dir = DENOISED_DIR / model
-    output_wav = out_dir / f"{input_wav.stem}__{model}.wav"
+    suffix = "" if strength >= 1.0 else f"__s{int(round(strength * 100))}"
+    output_wav = out_dir / f"{input_wav.stem}__{model}{suffix}.wav"
 
     try:
-        result = process(str(input_wav), str(output_wav), {"model": model})
+        result = process(str(input_wav), str(output_wav), {"model": model, "strength": strength})
     except Exception as exc:
         return {"status": "error", "message": str(exc)}
 
@@ -222,6 +286,7 @@ def run(input_wav, model="gtcrn"):
     row = {
         "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "model": model,
+        "strength": strength,
         "model_name": MODEL_LABELS.get(model, model),
         "input": str(input_wav),
         "output": str(output_wav),
@@ -240,6 +305,7 @@ def run(input_wav, model="gtcrn"):
     return {
         "status": "ok",
         "model": model,
+        "strength": strength,
         "model_name": MODEL_LABELS.get(model, model),
         "input": str(input_wav),
         "output": str(output_wav),

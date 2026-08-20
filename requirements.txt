@@ -1,0 +1,17 @@
+# Signal Desk 运行依赖（Windows + Python 3.12，CPU 优先）
+fastapi>=0.141.0
+uvicorn[standard]>=0.52.0
+numpy>=2.4.0
+librosa>=0.11.0
+soundfile>=0.14.0
+onnxruntime>=1.28.0
+torch>=2.12.0
+scipy>=1.17.0
+scikit-learn>=1.9.0
+joblib>=1.5.0
+praat-parselmouth>=0.4.7
+requests>=2.34.0
+noisereduce>=3.0.3
+openpyxl>=3.1.5
+imageio-ffmpeg>=0.6.0
+audiobox-aesthetics>=0.0.4
