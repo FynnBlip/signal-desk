@@ -345,7 +345,7 @@ def loop_run(payload: dict = Body(default={})):
             if result.get("status") == "ok":
                 st = loop.load_status()
                 evaluated = list(dict.fromkeys(st.get("evaluated_versions", []) + [baseline, candidate]))
-                decision = loop.decide(result["judge"], run_config, evaluated)
+                decision = loop.decide(result["judge"], run_config, evaluated, result["rows"])
                 st["last_judge"] = result["judge"]
                 st["last_decision"] = decision
                 st["evaluated_versions"] = evaluated

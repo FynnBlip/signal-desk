@@ -92,6 +92,36 @@
   .chip { background: #fff; border: 1px solid var(--gray-200); border-radius: var(--r-full); padding: 3px 11px; font-size: 12px; } .chip b { font-variant-numeric: tabular-nums; }
   .muted-sm { color: var(--gray-500); font-size: 12px; }
 
+  /* ComfyUI 式 loop canvas */
+  .loop-wrap { margin-bottom: 22px; }
+  .loop-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 14px; }
+  .loop-head .num { color: var(--gray-500); font-size: 12px; font-weight: 600; letter-spacing: .5px; }
+  .loop-head h2 { font-size: 18px; margin-top: 2px; }
+  .loop-canvas { position: relative; height: 620px; background: radial-gradient(1200px 500px at 50% -10%, rgba(139,92,246,.07), transparent 60%), radial-gradient(900px 500px at 100% 110%, rgba(20,184,166,.06), transparent 60%), var(--glass); border: 1px solid var(--glass-border); border-radius: var(--r-lg); box-shadow: var(--shadow-card); overflow: hidden; }
+  .loop-svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  .loop-node { position: absolute; width: 196px; background: rgba(255,255,255,.95); border: 1px solid rgba(31,38,135,.12); border-radius: 12px; box-shadow: 0 1px 2px rgba(31,38,135,.05), 0 10px 28px rgba(31,38,135,.10); overflow: hidden; transition: opacity .25s var(--ease-io), box-shadow .2s var(--ease-io), border-color .2s var(--ease-io), filter .25s var(--ease-io); }
+  .loop-node:hover { box-shadow: 0 1px 2px rgba(31,38,135,.05), 0 16px 38px rgba(31,38,135,.16); border-color: rgba(139,92,246,.35); }
+  .loop-node.off { opacity: .5; filter: grayscale(.85); }
+  .loop-node .node-head { display: flex; align-items: center; gap: 7px; padding: 8px 12px; background: linear-gradient(to right, rgba(139,92,246,.09), rgba(139,92,246,.02)); border-bottom: 1px solid rgba(31,38,135,.08); cursor: pointer; }
+  .loop-node .node-head .lamp { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 2px var(--ok-bg); flex-shrink: 0; transition: background .2s, box-shadow .2s; }
+  .loop-node.off .node-head .lamp { background: var(--gray-400); box-shadow: 0 0 0 2px rgba(156,163,175,.15); }
+  .loop-node .node-head .num { font-size: 10px; color: var(--gray-500); font-weight: 600; letter-spacing: .3px; }
+  .loop-node .node-head .t { font-size: 12px; font-weight: 600; flex: 1; color: var(--gray-800); }
+  .loop-node .node-body { padding: 7px 8px; height: 204px; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; gap: 3px; }
+  .loop-node .node-body::-webkit-scrollbar { width: 4px; }
+  .loop-node .node-body::-webkit-scrollbar-thumb { background: #E2E8F0; border-radius: 2px; }
+  .loop-node .node-body::-webkit-scrollbar-track { background: transparent; }
+  .loop-port { display: flex; align-items: center; gap: 7px; padding: 4px 7px; border-radius: 7px; background: #F8FAFC; border: 1px solid #E2E8F0; font-size: 11px; color: var(--gray-700); cursor: pointer; transition: background .15s, border-color .15s, opacity .15s; white-space: nowrap; }
+  .loop-port:hover { border-color: rgba(139,92,246,.4); background: #F1F5F9; }
+  .loop-port.off { opacity: .42; }
+  .loop-port.off .dot { background: #CBD5E1; box-shadow: none; }
+  .loop-port.off .lbl { color: var(--gray-400); text-decoration: line-through; }
+  .loop-port .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--purple-500); box-shadow: 0 0 0 2px rgba(139,92,246,.18); flex-shrink: 0; }
+  .loop-port .lbl { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+  .loop-port .cnt { font-size: 10px; color: var(--gray-400); font-weight: 600; }
+  .loop-note { width: 100%; font-size: 11px; color: var(--gray-500); padding: 3px 2px 0; }
+  .loop-fallback { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--gray-500); font-size: 13px; }
+
   /* 02 详情 */
   .field { display: flex; flex-direction: column; gap: 6px; }
   .field label { font-size: 12px; color: var(--gray-600); font-weight: 500; }
@@ -259,6 +289,14 @@
       <div class="page-head">
         <div><h1>通话评测工作台</h1><div class="subtitle">喂任意 wav 出真实 PQ 分 · 七模块串成双闭环 · 零 GPU 门槛</div></div>
         <span class="chip-live">● 服务在线</span>
+      </div>
+      <!-- ComfyUI 式 loop canvas：总览第一屏 -->
+      <div class="loop-wrap">
+        <div class="loop-head">
+          <div><span class="num">LOOP CANVAS</span><h2>评测循环 · 一眼看全</h2></div>
+          <span class="muted-sm">点节点进详情 · 点 chip 置灰/点亮该变量 · 点节点左上角灯置灰/点亮整个模块</span>
+        </div>
+        <div class="loop-canvas" id="loopCanvas"></div>
       </div>
       <div class="kpis">
         <div class="kpi"><div class="ico i-purple">📝</div><div class="val" id="kpiCorpus">—</div><div class="lab">语料模板（条）</div></div>
@@ -601,6 +639,162 @@ async function init(){
   initEvaluate();
   initLoop();
   render();
+  renderLoopCanvas();
+}
+
+/* ---------- ComfyUI 式 loop canvas ---------- */
+let LC = { nodes: [] };
+
+async function renderLoopCanvas(){
+  const el = document.getElementById("loopCanvas");
+  if(!el) return;
+  el.innerHTML = '<div class="loop-fallback">正在读取真实数据…</div>';
+  const get = async (u)=>{ try{ const r=await fetch(u); return await r.json(); }catch(e){ return null; } };
+  const [corpus, scenes, models, loopOpt, loopStat, tts] = await Promise.all([
+    get("/api/corpus/templates"), get("/api/channel/noise/scenes"), get("/api/denoise/models"),
+    get("/api/loop/options"), get("/api/loop/status"), get("/api/tts/voices"),
+  ]);
+  LC.nodes = buildLoopNodes({corpus, scenes, models, loopOpt, loopStat, tts});
+  el.innerHTML = '<svg class="loop-svg" id="loopSvg"></svg>';
+  LC.nodes.forEach((n,i)=>{
+    const div = document.createElement("div");
+    div.className = "loop-node";
+    div.id = "loopNode"+i;
+    div.innerHTML = loopNodeHtml(n, i);
+    el.appendChild(div);
+  });
+  layoutLoop();
+  drawLoopEdges();
+}
+
+function shortScene(label){
+  return String(label||"").replace("安静 · ","").replace(" · 交通","").replace(" · 90dB","90dB");
+}
+function shortModel(id){
+  return {gtcrn:"GTCRN", deepfilternet3:"DF3", noisereduce:"NoiseReduce"}[id] || id;
+}
+
+function buildLoopNodes(d){
+  const corpus = d.corpus?.templates || [];
+  const scenes = d.scenes?.scenes || [];
+  const models = d.models?.models || [];
+  const versions = d.loopOpt?.versions || [];
+  const loop = d.loopStat || {};
+  const tts = d.tts?.voices || [];
+  const clusters = [
+    {id:"c0", label:"高音域", count:4},
+    {id:"c1", label:"中低音域", count:14},
+  ];
+  const nodes = [
+    { num:"01", name:"语料", goto:"m01",
+      chips: corpus.map(t=>({id:t.id, label:t.scene, title:t.id+" · "+t.text})) },
+    { num:"02", name:"声线", goto:"voice",
+      chips: clusters.map(c=>({id:c.id, label:c.label, count:c.count})) },
+    { num:"03", name:"TTS", goto:"tts",
+      chips: [{id:"minimax",label:"MiniMax"},{id:"voices",label:"音色",count:tts.length}] },
+    { num:"04", name:"信道", goto:"channel",
+      chips: [{id:"opus",label:"Opus"}].concat(scenes.map(s=>({id:s.id,label:shortScene(s.label),title:s.label}))) },
+    { num:"05", name:"降噪", goto:"denoise",
+      chips: models.map(m=>({id:m.id,label:shortModel(m.id),title:m.name})) },
+    { num:"06", name:"评测", goto:"evaluate",
+      chips: [{id:"PQ",label:"PQ"},{id:"PC",label:"PC"},{id:"CE",label:"CE"},{id:"CU",label:"CU"}] },
+    { num:"07", name:"闭环", goto:"loop",
+      chips: versions.map(v=>({id:v.id,label:v.id,title:v.label})),
+      note: "baseline " + (loop.baseline||"—") + " · " + (loop.status==="no_solution"?"已收敛":"迭代中") },
+  ];
+  return nodes.map(n=>({ ...n, on:true, chips:n.chips.map(c=>({...c,on:true})) }));
+}
+
+function loopNodeHtml(n, i){
+  const chips = n.chips.map((c,ci)=>
+    `<div class="loop-port ${c.on?"":"off"}" onclick="toggleLoopChip(${i},${ci});event.stopPropagation()" title="${esc(c.title||c.label)}"><span class="dot"></span><span class="lbl">${esc(c.label)}</span>${c.count!=null?`<span class="cnt">${c.count}</span>`:""}</div>`
+  ).join("");
+  const note = n.note ? `<div class="loop-note">${esc(n.note)}</div>` : "";
+  return `<div class="node-head" onclick="toggleLoopNode(${i})" title="点击置灰 / 点亮整个模块">
+    <span class="lamp"></span><span class="num">${n.num}</span><span class="t">${esc(n.name)}</span>
+  </div>
+  <div class="node-body" onclick="openLoopNode('${n.goto}')">${chips}${note}</div>`;
+}
+
+function layoutLoop(){
+  const canvas = document.getElementById("loopCanvas");
+  const W = canvas.clientWidth, H = canvas.clientHeight;
+  const nodeW = 196;
+  const nodeH = Math.max(...LC.nodes.map((n,i)=>{
+    const el = document.getElementById("loopNode"+i);
+    return el ? el.offsetHeight : 250;
+  }));
+  const row1 = [0,1,2,3], row2 = [4,5,6];
+  const margin = 28;
+  const place = (indices, y) => {
+    const gap = indices.length > 1 ? (W - margin*2 - nodeW*indices.length) / (indices.length - 1) : 0;
+    indices.forEach((ni, k) => {
+      const el = document.getElementById("loopNode"+ni);
+      el.style.left = Math.round(margin + k*(nodeW + gap)) + "px";
+      el.style.top = Math.round(y - nodeH/2) + "px";
+    });
+  };
+  place(row1, H*0.30);
+  place(row2, H*0.72);
+}
+
+function loopEdgePoint(node, tx, ty){
+  const dx = tx - node.x, dy = ty - node.y;
+  const len = Math.hypot(dx, dy) || 1;
+  const ux = dx/len, uy = dy/len;
+  const t = Math.min(node.halfW/(Math.abs(ux)||1e-6), node.halfH/(Math.abs(uy)||1e-6));
+  return { x: node.x + ux*t, y: node.y + uy*t };
+}
+
+function drawLoopEdges(){
+  const svg = document.getElementById("loopSvg");
+  const canvas = document.getElementById("loopCanvas");
+  const W = canvas.clientWidth, H = canvas.clientHeight;
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  const defs = `<defs>
+    <marker id="arr" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#94A3B8"/></marker>
+    <marker id="arrLoop" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#8B5CF6"/></marker>
+  </defs>`;
+  const nodes = LC.nodes.map((n,i)=>{
+    const el = document.getElementById("loopNode"+i);
+    return { x: el.offsetLeft + el.offsetWidth/2, y: el.offsetTop + el.offsetHeight/2,
+             halfW: el.offsetWidth/2, halfH: el.offsetHeight/2 };
+  });
+  const seq = [0,1,2,3,4,5,6,0];
+  let edges = "";
+  for(let k=0; k<seq.length-1; k++){
+    const a = nodes[seq[k]], b = nodes[seq[k+1]];
+    if(seq[k]===6 && seq[k+1]===0){
+      const sx = a.x + a.halfW, sy = a.y;
+      const ex = b.x, ey = b.y - b.halfH;
+      const mx = W - 18;
+      edges += `<path d="M ${sx} ${sy} C ${mx} ${sy}, ${mx} ${ey}, ${ex} ${ey}" fill="none" stroke="#8B5CF6" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#arrLoop)"/>`;
+    } else {
+      const s = loopEdgePoint(a, b.x, b.y);
+      const e = loopEdgePoint(b, a.x, a.y);
+      edges += `<line x1="${s.x}" y1="${s.y}" x2="${e.x}" y2="${e.y}" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr)"/>`;
+    }
+  }
+  const labelX = W - 76;
+  const labelY = (nodes[6].y + nodes[0].y)/2 + 14;
+  svg.innerHTML = defs + edges + `<text x="${labelX}" y="${labelY}" font-size="11" fill="#8B5CF6" font-weight="600">迭代回环</text>`;
+}
+
+function toggleLoopChip(ni, ci){
+  const c = LC.nodes[ni].chips[ci];
+  c.on = !c.on;
+  const el = document.getElementById("loopNode"+ni);
+  const chip = el?.querySelectorAll(".loop-port")[ci];
+  if(chip) chip.classList.toggle("off", !c.on);
+}
+function toggleLoopNode(ni){
+  const n = LC.nodes[ni];
+  n.on = !n.on;
+  document.getElementById("loopNode"+ni)?.classList.toggle("off", !n.on);
+}
+function openLoopNode(goto){
+  if(goto === "m01") showView("overview","m01");
+  else showView(goto);
 }
 
 /* ---------- 03 TTS ---------- */

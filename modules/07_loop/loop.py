@@ -57,7 +57,7 @@ denoise = _load_module(PROJECT_ROOT / "modules" / "05_denoise" / "denoise.py")
 evaluate = _load_module(PROJECT_ROOT / "modules" / "06_evaluate" / "evaluate.py")
 channel = _load_module(PROJECT_ROOT / "modules" / "04_channel" / "channel.py")
 
-DEEPSEEK_MODEL = os.environ.get("DEEPSEEK_MODEL", "deepseek-v4-pro")
+DEEPSEEK_MODEL = os.environ.get("DEEPSEEK_MODEL", "deepseek-v4-flash-vision-exp")
 DEEPSEEK_BASE_URL = os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com/anthropic")
 DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY", "")
 
@@ -241,9 +241,57 @@ def rule_decide(judge_report, config, evaluated):
     }
 
 
-def llm_decide(context, config):
-    """真 LLM 决策（DeepSeek anthropic 兼容接口）。失败则回退规则。"""
+def _attr_chart_b64(rows):
+    """从逐场景 rows 生成 ΔPQ 归因图，返回 base64（失败返回 None）。"""
+    if not rows:
+        return None
+    try:
+        import io
+        import base64
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+        import matplotlib.font_manager as fm
+        for f in [r"C:\Windows\Fonts\msyh.ttc", r"C:\Windows\Fonts\msyhbd.ttc"]:
+            if Path(f).exists():
+                fm.fontManager.addfont(f)
+        plt.rcParams["font.family"] = ["Microsoft YaHei", "DejaVu Sans"]
+        plt.rcParams["axes.unicode_minus"] = False
+        labels = [f"{r['noise_label']}\n{r['snr_db']}dB" for r in rows]
+        deg  = [r["degraded_pq"] for r in rows]
+        base = [r["baseline_pq"] for r in rows]
+        cand = [r["candidate_pq"] for r in rows]
+        fig, ax = plt.subplots(figsize=(8.6, 4.8), dpi=130)
+        x = list(range(len(rows)))
+        ax.plot(x, deg,  "--o", color="#94A3B8", lw=1.6, ms=4, label="退化语音")
+        ax.plot(x, base, "-o", color="#7C3AED", lw=2.4, ms=5, label="已验收版本")
+        ax.plot(x, cand, "-o", color="#0D9488", lw=2.4, ms=5, label="候选新版本")
+        ax.set_xticks(x)
+        ax.set_xticklabels(labels, fontsize=8.5)
+        ax.set_ylabel("PQ 制作质量（越高越好）", fontsize=9)
+        ax.set_title("版本迭代 · 逐噪声场景 PQ", fontsize=11, fontweight="bold")
+        ax.grid(alpha=0.25, ls=":")
+        ax.legend(fontsize=8.5, loc="upper right", framealpha=0.9)
+        plt.tight_layout()
+        buf = io.BytesIO()
+        plt.savefig(buf, format="png", bbox_inches="tight")
+        plt.close()
+        return base64.b64encode(buf.getvalue()).decode()
+    except Exception:
+        return None
+
+
+def llm_decide(context, config, rows=None):
+    """真 LLM 决策（DeepSeek vision：看图 + 数字归因）。失败则回退规则。"""
+    def _log(msg):
+        try:
+            with (LOOP_DIR / "llm_debug.log").open("a", encoding="utf-8") as f:
+                f.write(datetime.datetime.now().strftime("%H:%M:%S") + " | " + msg + "\n")
+        except Exception:
+            pass
+    _log(f"start key_len={len(DEEPSEEK_API_KEY)} model={DEEPSEEK_MODEL} rows={'Y' if rows else 'N'}")
     if not DEEPSEEK_API_KEY:
+        _log("no api key -> return None")
         return None
     import requests
 
@@ -254,9 +302,15 @@ def llm_decide(context, config):
         "accept（新版本曲线整体上行，验收晋级）、iterate（未上行，回滚，准备下一版定向调参）、no_solution（无解，诚实收口）。\n"
         f"已验收版本 baseline={config['baseline']}，候选新版本 candidate={config['candidate']}\n"
         f"可用版本候选：{[{'id': v['id'], 'strength': v['strength']} for v in list_versions()]}\n"
-        "数据：\n" + json.dumps(context, ensure_ascii=False, indent=2) + "\n"
+        "下面是逐场景 PQ 曲线图（紫=已验收，青=候选，灰虚线=退化语音）与数值：\n"
+        + json.dumps(context, ensure_ascii=False, indent=2) + "\n"
         '输出格式：{"action": "...", "version": null, "hypothesis": "...", "reason": "..."}'
     )
+    content = [{"type": "text", "text": prompt}]
+    b64 = _attr_chart_b64(rows)
+    _log(f"chart_b64_len={len(b64) if b64 else 'None'}")
+    if b64:
+        content.append({"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": b64}})
     try:
         resp = requests.post(
             f"{DEEPSEEK_BASE_URL.rstrip('/')}/v1/messages",
@@ -267,26 +321,36 @@ def llm_decide(context, config):
             },
             json={
                 "model": DEEPSEEK_MODEL,
-                "max_tokens": 800,
-                "system": "你是严谨、诚实的通话降噪版本迭代决策者；不为了迭代而迭代，无解就诚实收口。",
-                "messages": [{"role": "user", "content": prompt}],
+                "max_tokens": 4000,
+                "system": "你是严谨、诚实的通话降噪版本迭代决策者；看图 + 看数字做归因，不为了迭代而迭代，无解就诚实收口。",
+                "messages": [{"role": "user", "content": content}],
             },
-            timeout=60,
+            timeout=120,
         )
+        _log(f"http_status={resp.status_code}")
         resp.raise_for_status()
         data = resp.json()
-        text = "".join(b.get("text", "") for b in data.get("content", []))
+        text = "".join(b.get("text", "") for b in data.get("content", []) if b.get("type") == "text")
+        _log(f"text_len={len(text)} stop={data.get('stop_reason')}")
         m = re.search(r"\{.*\}", text, re.S)
         if not m:
+            _log("no json in text -> return None")
             return None
         decision = json.loads(m.group(0))
         decision["llm"] = True
         return decision
-    except Exception:
+    except Exception as exc:
+        try:
+            (LOOP_DIR / "llm_error.log").write_text(
+                f"{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | {type(exc).__name__}: {exc}",
+                encoding="utf-8",
+            )
+        except Exception:
+            pass
         return None
 
 
-def decide(judge_report, config, evaluated):
+def decide(judge_report, config, evaluated, rows=None):
     """先试 LLM，再回退规则。"""
     ctx = {
         "judge": judge_report,
@@ -295,7 +359,7 @@ def decide(judge_report, config, evaluated):
         "version_pool": [{"id": v["id"], "strength": v["strength"]} for v in list_versions()],
         "evaluated": evaluated,
     }
-    decision = llm_decide(ctx, config)
+    decision = llm_decide(ctx, config, rows)
     if decision is None:
         decision = rule_decide(judge_report, config, evaluated)
         decision["llm"] = False
