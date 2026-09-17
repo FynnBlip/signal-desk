@@ -1,20 +1,29 @@
 # Signal Desk · 通话评测工作台
 
-喂任意 wav，出真实 PQ 分。把「语料 → 声线 → TTS → 信道 → 降噪 → 评测 → 判定」
-七步通话测试链路做成可交互的本地工作台，零 GPU、纯 CPU 可跑。
+把通话算法验证做成可交互、可观察、可追溯的本地受控实验：固定参考音色、探针语料、
+噪声环境与评测规则，只改变 DUT 算法版本。核心路径可在普通 CPU 电脑运行；不同 Provider
+仍可能有各自的内存、模型权重和 API 要求。
 
-> 目标：开源的、任何人一条命令能跑起来的通话质量评测 Agent 工作台。
+> 目标：让没有重资产实验室条件的人也能理解并扩展一套通话音频实验 workflow。
 
-## 七步链路
+## 产品心智模型
 
 ```
-语料(01) → 声线(02) → TTS(03) → 信道(04) → 降噪(05) → 评测(06) → 判定(07)
-   ↑                                                                    │
-   └──────────────────── 迭代回环（回滚 / 换版本 / 调参）────────────────┘
+固定测试矩阵 Golden Benchmark v1
+                 ↓
+当前基准版本 → 待验证版本 → 固定矩阵评测 → 人工确认晋级 / 回滚
+     ↑                                           │
+     └──────────────── 下一轮比较 ───────────────┘
 ```
 
-每个 part 独立可跑，也能串成 loop。闭环大脑根据评测结果做「归因 → 条件晋级判定
-→ LLM/规则建议 → 人在环确认」，决定回滚还是进入下一版。
+Loop 是产品的外层结构；语料、声线、TTS、信道、降噪和评测是 Loop 内部调用的六项能力，
+也可在专业工作台独立使用。确定性工程 Gate 先限定可执行动作；LLM 只提供归因和建议，
+不能绕过 Gate；最终仍由人在环确认。
+
+- **Golden Benchmark** 回答“用什么尺子测？”
+- **当前基准版本（Baseline）** 回答“新版本和谁比？”
+- **待验证版本（Candidate）** 是本轮准备验证的新算法。
+- 新工作区不会凭空指定基准版本；用户首次建立，或由上一轮确认晋级产生。
 
 ## 当前状态
 
@@ -23,18 +32,19 @@
 | 01 语料生成 | ready | 中文通话语料 + 易混音对覆盖自检 |
 | 02 音色聚类 | wip | 声线特征 + KMeans 聚类 + 覆盖矩阵 |
 | 03 TTS 合成 | wip | MiniMax 系统音色合成 exam wav（预留本地引擎插槽） |
-| 04 信道仿真 | wip | Opus 编解码闭环 × 多噪声场景 |
+| 04 信道仿真 | wip | Opus 编解码闭环 × 多噪声场景，记录设定/实测 SNR 与码率 |
 | 05 降噪 DUT | wip | GTCRN / DeepFilterNet3 / noisereduce |
-| 06 评测 | wip | audiobox PQ/PC/CE/CU + ΔPQ 对比 |
-| 07 闭环大脑 | wip | 版本迭代：归因 → 条件晋级 → 建议 → 人在环 |
+| 06 评测 | wip | AudioBox PQ/PC/CE/CU + ΔPQ；综合分与等级默认关闭 |
+| 外层版本验证 Loop | wip | 当前版本 → 新版本 → Gate/LLM 建议 → 盲听 → 人在环留痕 |
 
 > ready = 达到当前验收标准；wip = 有可跑的最小闭环，仍在打磨验收。
 
 ## 最新进展
 
-- **05 接入 noisereduce**：`prop_decrease` 作为真实、可引用的降噪强度旋钮（替代早期 wet/dry 混音演示），纯 CPU 谱门控降噪。
-- **07 版本迭代**：版本空间 = 同一算法沿「降噪比例 100%→40%」扫描，判定器输出「整体晋级（N 场景回退）／全绿晋级／条件晋级／回滚」，前端回退场景标黄，诚实呈现「一个上一个下」的权衡。
-- **双主题**：浅色 SaaS + 暗色霓虹，设计 token 见 `docs/design-tokens.md`。
+- **05 接入 noisereduce**：`prop_decrease` 是该 Provider 的原生降噪强度旋钮。GTCRN / DeepFilterNet3 的 `strength` 仍是湿/干混合演示参数，Trace 以 `strength_mode=wet_dry_demo` 明确标注，不能当作模型原生强度。
+- **可恢复 Run**：评测与簇级回归按 `run_id` 写入 `data/runs/`，服务重启后仍能恢复最近结果。
+- **版本化 Trace**：降噪与信道使用 schema v3，人工盲听使用独立的版本化 schema；旧 CSV 保留取证但停止追加。
+- **锁定设计系统**：暖纸墨黑的 editorial workbench，唯一依据见 `design.md` 与 `tokens.css`。
 
 ## 目录结构
 
@@ -48,25 +58,70 @@
 | `docs/` | ADR / 设计 token / 口径依据 |
 | `tests/` | 模块验收测试 |
 
-## 怎么跑
+## 快速开始
 
-```bash
-# 安装依赖（Windows + Python 3.12，CPU 优先）
-pip install -r requirements.txt
+Signal Desk 不是一个可以直接双击 HTML 使用的静态网页：浏览器页面依赖本机 Python 服务。
+第一次下载后先安装依赖；以后每次重启 Windows，只需重新启动一次服务。
 
-# 启动服务
-python server/main.py
-# 浏览器打开 http://127.0.0.1:8090
+```powershell
+# 获取源码
+git clone https://github.com/FynnBlip/signal-desk.git
+cd signal-desk
+
+# Windows PowerShell，项目根目录
+& "C:\Program Files\Python312\python.exe" -m pip install -r requirements.txt
+
+# 可选：生成不含真实语音的 wiring smoke fixtures
+& "C:\Program Files\Python312\python.exe" scripts/bootstrap_demo.py
+
+# 启动服务；健康检查通过后打开 http://127.0.0.1:8090
+& "C:\Program Files\Python312\python.exe" server/main.py
 ```
 
-降噪 DUT 的 ONNX 权重、TTS 的 MiniMax key、audiobox checkpoint 等本地资产
-见 `models/` 与 `.env.example`，不入仓库。
+安装依赖后，Windows 用户推荐直接双击 `启动.bat`。它会寻找 Python、启动本地服务、等待
+`/api/health` 真正就绪，再自动打开浏览器。关闭浏览器不会删除缓存或实验历史；关闭 Python
+服务窗口、注销或重启 Windows 后，需要再次双击 `启动.bat`。如果页面显示 `Failed to fetch`，
+表示本地服务没有运行，重新启动服务并点击页面内的“重新连接/重新读取”即可。
+
+首次启动或加载 AudioBox 等模型可能需要较长时间。`启动.bat` 等待 120 秒；若仍未通过健康检查，
+请在 PowerShell 中直接运行上面的 `server/main.py` 命令查看完整错误。不要直接打开 `app/*.html`，
+应始终访问启动脚本打开的 `http://127.0.0.1:8090/`。
+
+复制 `.env.example` 为 `.env`，按需配置 MiniMax、AudioBox 或 DeepSeek。没有对应 key/权重时，
+相关 Provider 会明确显示未就绪，其余槽位仍可独立使用。降噪 ONNX 权重与 AudioBox checkpoint
+见 `models/README.md`，权重不入仓库。
+
+### 第一次真实比较
+
+服务启动不等于测试素材已准备好。打开工作台后，首页会列出参考音色、六场景噪声、降噪算法与 AudioBox 模型四项状态。可在浏览器打开 `/setup.html` 查看逐项操作指南。
+
+- 固定基准使用 **26 个不同音色与 4 个簇**：在 TTS 合成页选择缓存，或“准备测试音色”→预览调用量→确认生成；再到声线页“四簇聚类”→“锁为声线参考集”。其它数量用于独立分析。声线资源锁定与降噪版本晋级分别管理。
+- MiniMax 生成需要账号与额度，先预览调用量；目录不足 26 个音色时不启动固定基准生成。
+- `bootstrap_demo.py` 仅检查布线；它的合成噪声不能用于正式版本比较，即使与正式素材混放也会被拦截。
+- 四项就绪后再开始内置 V1 → V2，复核真实结果后人工确认。没有密钥或模型时可以浏览工具，但没有可直接运行的离线质量评测 Demo。
+
+## 自验证
+
+```bash
+python -m unittest discover -s tests -v
+python scripts/smoke_test.py  # 服务已启动时
+```
+
+`bootstrap_demo.py` 生成的是合成音与合成噪声，只用于检查布线，不是语音数据集、基准或质量证据。
+人工体验验收可直接按 [`docs/验收清单.md`](docs/验收清单.md) 从首页走到闭环。
 
 ## 数据红线
 
-- 所有数字来自 `data/eval` 真实评测 CSV，缺测写 NaN + `not_tested`，禁止占位假数据。
+- 所有评分必须来自真实模型推理；缺测明确为空，不用占位假数据。
 - 一份数据一个唯一来源，`matrix/` 是源，降噪产物按 `denoised/<版本>/` 归位。
 - 无解就写无解，不造晋级假象；历史 CSV 不改，新数据写新时间戳。
+- PC 是 Production Complexity，不是质量轴；默认不与 PQ/CE/CU 平均成“综合质量”。
+- 噪声场景中的 `level_db` 只是场景参考标签，不参与数字混音；真实注入强度由设定 SNR 与实测 SNR 记录。
+
+## 开源边界
+
+代码使用 MIT License。模型权重、第三方数据集和远程 API 分别遵守其原始许可与服务条款；
+仓库不包含任何公司内部数据、参数、用例、标准或实验室文件。
 
 ## 发心
 

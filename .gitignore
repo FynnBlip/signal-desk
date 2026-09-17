@@ -5,9 +5,20 @@
 __pycache__/
 *.pyc
 
-# 数据与模型产物：本地生成，不入仓库
-data/
-models/*.pt
+# 数据与模型产物：本地生成，不入仓库；说明文件保留
+data/*
+!data/README.md
+models/**/*.pt
+models/**/*.pth
+models/**/*.ckpt
+models/**/*.onnx
+models/**/*.bin
 
 # 临时预览截图
 /tts_*.png
+.pytest_cache/
+.coverage
+.hallmark/
+
+# 本地验收截图、日志与候选副本：不进入公开仓库
+/artifacts/

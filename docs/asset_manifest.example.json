@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "note": "Copy this file to data/noise/asset_manifest.json. Declaring a source records provenance; it is not laboratory certification.",
+  "scenes": {
+    "NPARK": {
+      "source": "Replace with the recording origin and licence you actually have.",
+      "purpose": "formal-benchmark"
+    },
+    "OOFFICE": {
+      "source": "Replace with the recording origin and licence you actually have.",
+      "purpose": "formal-benchmark"
+    },
+    "PCAFETER": {
+      "source": "Replace with the recording origin and licence you actually have.",
+      "purpose": "formal-benchmark"
+    },
+    "PRESTO": {
+      "source": "Replace with the recording origin and licence you actually have.",
+      "purpose": "formal-benchmark"
+    },
+    "STRAFFIC": {
+      "source": "Replace with the recording origin and licence you actually have.",
+      "purpose": "formal-benchmark"
+    },
+    "TMETRO": {
+      "source": "Replace with the recording origin and licence you actually have.",
+      "purpose": "formal-benchmark"
+    }
+  }
+}

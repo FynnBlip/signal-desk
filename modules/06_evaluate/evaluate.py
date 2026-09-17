@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""06 评测 —— audiobox-aesthetics PQ/PC/CE/CU + 综合评分 / 等级 / ΔPQ 对比。
+"""06 评测 —— audiobox-aesthetics PQ/PC/CE/CU + 可选派生分 / ΔPQ 对比。
 
 两种模式：
     directory   —— 评一个目录里的 wav（对齐 First-CC 批量评测工具）
@@ -13,14 +13,10 @@ import datetime
 import json
 import math
 import os
-import warnings
 from pathlib import Path
 
 import soundfile as sf
 import torch
-
-warnings.filterwarnings("ignore", category=FutureWarning)
-warnings.filterwarnings("ignore", category=UserWarning)
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 EVAL_DIR = PROJECT_ROOT / "data" / "eval"
@@ -42,16 +38,21 @@ METRIC_DESCRIPTIONS = {
     "CU": "Content Usefulness — 作为内容创作素材的可用性与再利用价值",
 }
 DEFAULT_LEVELS = [
-    {"min": 4.0, "label": "优秀", "color": "#34D399"},
-    {"min": 3.0, "label": "良好", "color": "#60A5FA"},
-    {"min": 2.0, "label": "一般", "color": "#FBBF24"},
+    {"min": 8.0, "label": "优秀", "color": "#34D399"},
+    {"min": 6.0, "label": "良好", "color": "#60A5FA"},
+    {"min": 4.0, "label": "一般", "color": "#FBBF24"},
     {"min": 0.0, "label": "较差", "color": "#F87171"},
 ]
 DEFAULT_SETTINGS = {
+    "schema_version": 3,
     "batch_size": 4,
-    "overall_mode": "average",
+    # PC 是 Production Complexity，不是“越高越好”的质量轴。默认不把四轴
+    # 平均成一个看似权威的总分；项目方明确给出判据后才允许启用派生分。
+    "overall_mode": "disabled",
     "weights": {"PQ": 1.0, "PC": 1.0, "CE": 1.0, "CU": 1.0},
     "custom_formula": "(PQ + PC + CE + CU) / 4",
+    "level_enabled": False,
+    "level_metric": "PQ",
     "levels": DEFAULT_LEVELS,
 }
 
@@ -94,7 +95,13 @@ def _load_wav(filepath):
 
 
 def score_files(predictor, filepaths, batch_size=4, progress_cb=None):
-    files = [Path(p) for p in filepaths if Path(p).exists()]
+    requested = [Path(p) for p in filepaths]
+    missing = [str(path) for path in requested if not path.is_file()]
+    if missing:
+        preview = "、".join(missing[:3])
+        suffix = f"（另有 {len(missing) - 3} 个）" if len(missing) > 3 else ""
+        raise FileNotFoundError(f"评测输入不完整，缺少：{preview}{suffix}")
+    files = requested
     results = {}
     total = len(files)
     done = 0
@@ -126,19 +133,21 @@ def list_models():
 
 def load_channel_meta():
     meta = {}
-    csv_path = MATRIX_DIR / "channel_runs.csv"
-    if not csv_path.exists():
-        return meta
-    with csv_path.open(encoding="utf-8-sig") as f:
-        for row in csv.DictReader(f):
-            degraded = Path(row.get("degraded", "")).name
-            if degraded:
-                meta[degraded] = {
-                    "noise_label": row.get("noise_label", ""),
-                    "snr_db": row.get("snr_db", ""),
-                    "level_db": row.get("level_db", ""),
-                    "bandwidth_label": row.get("bandwidth_label", ""),
-                }
+    # Legacy rows stay readable; schema-v2 rows win for the same degraded file.
+    for csv_path in (MATRIX_DIR / "channel_runs.csv", MATRIX_DIR / "channel_runs_v2.csv", MATRIX_DIR / "channel_runs_v3.csv"):
+        if not csv_path.exists():
+            continue
+        with csv_path.open(encoding="utf-8-sig") as f:
+            for row in csv.DictReader(f):
+                degraded = Path(row.get("degraded", "")).name
+                if degraded:
+                    meta[degraded] = {
+                        "noise_label": row.get("noise_label", ""),
+                        "snr_db": row.get("snr_set_db") or row.get("snr_db", ""),
+                        "snr_measured_db": row.get("snr_measured_db", ""),
+                        "level_db": row.get("level_db", ""),
+                        "bandwidth_label": row.get("bandwidth_label", ""),
+                    }
     return meta
 
 
@@ -184,18 +193,44 @@ def load_settings():
     if SETTINGS_FILE.is_file():
         try:
             data = json.loads(SETTINGS_FILE.read_text(encoding="utf-8"))
-            for key in ("batch_size", "overall_mode", "weights", "custom_formula", "levels"):
+            # v1 默认把 PQ/PC/CE/CU 等权平均。这个语义不成立，所以旧设置
+            # 不自动继承 average；用户保存过 v2 之后才按显式选择恢复。
+            if int(data.get("schema_version", 1)) < 2:
+                data["overall_mode"] = "disabled"
+                data["level_enabled"] = False
+            # v2 曾错误沿用 1–5 分制的 4/3/2 示例；AudioBox 四轴实际按
+            # 0–10 展示。只迁移这一组精确的旧默认值，不触碰用户自定义阈值。
+            legacy_levels = [4.0, 3.0, 2.0, 0.0]
+            loaded_levels = data.get("levels") or []
+            loaded_mins = [float(item.get("min", 0)) for item in loaded_levels]
+            if int(data.get("schema_version", 1)) < 3 and loaded_mins == legacy_levels:
+                data["levels"] = json.loads(json.dumps(DEFAULT_LEVELS))
+            for key in (
+                "schema_version", "batch_size", "overall_mode", "weights",
+                "custom_formula", "level_enabled", "level_metric", "levels",
+            ):
                 if key in data:
                     settings[key] = data[key]
         except Exception:
             pass
+    settings["schema_version"] = 3
+    if settings.get("overall_mode") not in {"disabled", "weighted", "custom"}:
+        settings["overall_mode"] = "disabled"
     return settings
 
 
 def save_settings(settings):
     EVAL_DIR.mkdir(parents=True, exist_ok=True)
+    normalized = json.loads(json.dumps(DEFAULT_SETTINGS))
+    if isinstance(settings, dict):
+        for key in normalized:
+            if key in settings:
+                normalized[key] = settings[key]
+    normalized["schema_version"] = 3
+    if normalized.get("overall_mode") not in {"disabled", "weighted", "custom"}:
+        normalized["overall_mode"] = "disabled"
     SETTINGS_FILE.write_text(
-        json.dumps(settings, ensure_ascii=False, indent=2), encoding="utf-8"
+        json.dumps(normalized, ensure_ascii=False, indent=2), encoding="utf-8"
     )
 
 
@@ -215,7 +250,9 @@ def eval_custom_formula(expr, pq, pc, ce, cu):
 
 
 def compute_overall(pq, pc, ce, cu, settings):
-    mode = settings.get("overall_mode", "average")
+    mode = settings.get("overall_mode", "disabled")
+    if mode == "disabled":
+        return None
     if mode == "custom":
         return eval_custom_formula(settings.get("custom_formula", ""), pq, pc, ce, cu)
     if mode == "weighted":
@@ -224,10 +261,12 @@ def compute_overall(pq, pc, ce, cu, settings):
         if total <= 0:
             return (pq + pc + ce + cu) / 4.0
         return (pq * float(w.get("PQ", 1.0)) + pc * float(w.get("PC", 1.0)) + ce * float(w.get("CE", 1.0)) + cu * float(w.get("CU", 1.0))) / total
-    return (pq + pc + ce + cu) / 4.0
+    return None
 
 
 def get_level(score, levels):
+    if not levels:
+        return {"label": "未分级", "color": "#746F65"}
     ordered = sorted(levels, key=lambda x: -float(x.get("min", 0.0)))
     for lv in ordered:
         if score >= float(lv.get("min", 0.0)):
@@ -240,8 +279,14 @@ def _annotate(scores, settings):
     pc = scores["pc"]
     ce = scores["ce"]
     cu = scores["cu"]
-    overall = round(compute_overall(pq, pc, ce, cu, settings), 4)
-    level = get_level(pq, settings.get("levels", DEFAULT_LEVELS))
+    raw_overall = compute_overall(pq, pc, ce, cu, settings)
+    overall = round(raw_overall, 4) if raw_overall is not None else None
+    level = {"label": "未分级", "color": "#746F65"}
+    if settings.get("level_enabled"):
+        metric = str(settings.get("level_metric", "PQ")).upper()
+        metric_value = {"PQ": pq, "PC": pc, "CE": ce, "CU": cu, "OVERALL": overall}.get(metric)
+        if metric_value is not None:
+            level = get_level(metric_value, settings.get("levels", DEFAULT_LEVELS))
     return {
         "pq": pq, "pc": pc, "ce": ce, "cu": cu,
         "overall": overall,
@@ -251,22 +296,30 @@ def _annotate(scores, settings):
 
 
 def build_stats(files):
-    if not files:
-        return {"n": 0, "avg": None, "max": None, "min": None, "std": None}
-    overalls = [f["pq"] for f in files]
-    avg = sum(overalls) / len(overalls)
-    std = math.sqrt(sum((s - avg) ** 2 for s in overalls) / len(overalls)) if len(overalls) > 1 else 0.0
-    max_f = max(files, key=lambda x: x["pq"])
-    min_f = min(files, key=lambda x: x["pq"])
-    return {
-        "n": len(files),
-        "avg": round(avg, 4),
-        "max": round(max_f["pq"], 4),
-        "max_file": max_f["filename"],
-        "min": round(min_f["pq"], 4),
-        "min_file": min_f["filename"],
-        "std": round(std, 4),
+    def summarize(rows, scope):
+        if not rows:
+            return {"metric": "pq", "scope": scope, "n": 0, "avg": None, "max": None, "min": None, "std": None}
+        values = [item["pq"] for item in rows]
+        avg = sum(values) / len(values)
+        std = math.sqrt(sum((score - avg) ** 2 for score in values) / len(values)) if len(values) > 1 else 0.0
+        max_f = max(rows, key=lambda item: item["pq"])
+        min_f = min(rows, key=lambda item: item["pq"])
+        return {
+            "metric": "pq", "scope": scope, "n": len(rows), "avg": round(avg, 4),
+            "max": round(max_f["pq"], 4), "max_file": max_f["filename"],
+            "min": round(min_f["pq"], 4), "min_file": min_f["filename"],
+            "std": round(std, 4),
+        }
+
+    result = summarize(files, "all_sources")
+    result["by_source"] = {
+        source: summarize(
+            [item for item in files if str(item.get("source") or "未标注") == source],
+            "source",
+        )
+        for source in sorted({str(item.get("source") or "未标注") for item in files})
     }
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -318,6 +371,15 @@ def run_comparison(settings, progress_cb=None):
 
     meta = load_channel_meta()
     models = sorted({m for s in samples.values() for m in s["models"].keys()})
+    incomplete = []
+    for stem, sample in samples.items():
+        missing_models = [model for model in models if model not in sample["models"]]
+        if missing_models:
+            incomplete.append(f"{stem} 缺少模型 {', '.join(missing_models)}")
+    if incomplete:
+        preview = "；".join(incomplete[:5])
+        suffix = f"（另有 {len(incomplete) - 5} 条）" if len(incomplete) > 5 else ""
+        raise RuntimeError(f"对比矩阵不完整：{preview}{suffix}")
 
     files = []
     rows = []
@@ -326,7 +388,7 @@ def run_comparison(settings, progress_cb=None):
         clean_sc = scores.get(s["clean"])
         deg_sc = scores.get(s["degraded"])
         if clean_sc is None or deg_sc is None:
-            continue
+            raise RuntimeError(f"对比矩阵评分缺失：{stem} 的干净或退化音频没有评分")
         m = meta.get(f"{stem}.wav", {})
         clean_ann = _annotate(clean_sc, settings)
         deg_ann = _annotate(deg_sc, settings)
@@ -346,7 +408,7 @@ def run_comparison(settings, progress_cb=None):
         for model in models:
             model_sc = scores.get(s["models"].get(model))
             if model_sc is None:
-                continue
+                raise RuntimeError(f"对比矩阵评分缺失：{stem} · {model}")
             model_ann = _annotate(model_sc, settings)
             files.append({"filename": Path(s["models"][model]).name, "source": model, "sample": stem, "filepath": s["models"][model], **model_ann})
             row[f"{model}_pq"] = model_sc["pq"]
@@ -409,7 +471,6 @@ def export_excel(files, out_path, settings=None):
     from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
     from openpyxl.utils import get_column_letter
 
-    levels = (settings or {}).get("levels", DEFAULT_LEVELS)
     wb = Workbook()
     ws = wb.active
     ws.title = "评估结果"
@@ -428,9 +489,12 @@ def export_excel(files, out_path, settings=None):
     stripe_a = PatternFill("solid", fgColor="FAFAFA")
     stripe_b = PatternFill("solid", fgColor="FFFFFF")
     for idx, r in enumerate(files, 2):
-        level = get_level(r.get("overall", 0.0), levels)
+        level = {
+            "label": r.get("level") or "未分级",
+            "color": r.get("level_color") or "#746F65",
+        }
         stripe = stripe_a if idx % 2 == 0 else stripe_b
-        vals = [r.get("filename", ""), r.get("pq", 0), r.get("pc", 0), r.get("ce", 0), r.get("cu", 0), r.get("overall", 0), level["label"]]
+        vals = [r.get("filename", ""), r.get("pq", 0), r.get("pc", 0), r.get("ce", 0), r.get("cu", 0), r.get("overall"), level["label"]]
         for col, value in enumerate(vals, 1):
             cell = ws.cell(row=idx, column=col, value=value)
             cell.border = border

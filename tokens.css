@@ -1,0 +1,53 @@
+/* Signal Desk · locked design tokens · source of truth: design.md */
+:root {
+  --color-paper: #FAF9F5;
+  --color-paper-2: #EFEEE8;
+  --color-paper-3: #E3E1D9;
+  --color-ink: #191917;
+  --color-ink-2: #4D4B46;
+  --color-muted: #716E66;
+  --color-neutral: #605D56;
+  --color-rule: #D2CFC6;
+  --color-rule-2: #AAA69C;
+  --color-accent: #C45E3C;
+  --color-accent-ink: #FFF9F4;
+  --color-focus: #C45E3C;
+  --color-success: #267257;
+  --color-warning: #9A5B16;
+  --color-danger: #A23B32;
+
+  --font-display: "Segoe UI Variable Display", "Microsoft YaHei UI", sans-serif;
+  --font-body: "Segoe UI Variable Text", "Microsoft YaHei UI", sans-serif;
+  --font-editorial: Georgia, "Noto Serif SC", "Source Han Serif SC", STSong, serif;
+  --font-outlier: "Cascadia Mono", Consolas, monospace;
+  --font-mono: var(--font-outlier);
+
+  --text-meta: 12px;
+  --text-small: 14px;
+  --text-body: 16px;
+  --text-heading: 20px;
+  --text-section: 28px;
+  --text-display: clamp(42px, 4vw, 52px);
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-24: 96px;
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-micro: 120ms;
+  --dur-short: 180ms;
+  --dur-long: 320ms;
+  --rule-hair: 1px;
+  --rule-fine: 2px;
+  --radius-card: 10px;
+  --radius-pill: 999px;
+  --radius-input: 4px;
+}

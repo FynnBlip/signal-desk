@@ -1,4 +1,7 @@
-# ATS Resume Analyzer Dashboard · Design Tokens
+# 历史存档 · ATS Resume Analyzer Dashboard · Design Tokens
+
+> **已废弃，不再作为实现依据。** 当前唯一视觉规范是项目根目录 `design.md`，可移植 token
+> 见 `tokens.css` / `tokens.json`。本文只保留第一版探索过程，禁止恢复紫青渐变与毛玻璃。
 
 > 来源：Figma Community 文件 [ATS Resume Analyzer Dashboard](https://www.figma.com/community/file/1530261325896087183/ats-resume-analyzer-dashboard)
 >

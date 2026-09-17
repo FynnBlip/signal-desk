@@ -1,4 +1,7 @@
-# Aurora Glass · 可复用设计规范
+# 历史存档 · Aurora Glass · 可复用设计规范
+
+> **已废弃，不再作为实现依据。** 当前系统为 `design.md` 中的 editorial workbench；
+> 暖纸墨黑、细线账本、无渐变与无装饰阴影。本文仅作历史回溯。
 
 > 风格名：**Aurora Glass（紫青毛玻璃）**。一次沉淀，任何新项目/新页面直接套用。
 > 来源：ATS Resume Analyzer Dashboard（Figma Community，React+Tailwind v4 映射）+ Signal Desk 手感补充。

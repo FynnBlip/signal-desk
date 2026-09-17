@@ -9,6 +9,8 @@
 
 import csv
 import datetime
+import importlib.util
+import json
 import subprocess
 from pathlib import Path
 
@@ -22,6 +24,23 @@ EXAM_DIR = PROJECT_ROOT / "data" / "exam"
 NOISE_DIR = PROJECT_ROOT / "data" / "noise"
 PREVIEW_DIR = NOISE_DIR / "preview"
 
+
+def _load_wiring():
+    spec = importlib.util.spec_from_file_location("channel_wiring", Path(__file__).with_name("wiring.py"))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+wiring = _load_wiring()
+CHANNEL_TRACE_FIELDS = [
+    "schema_version", "timestamp", "reference", "degraded", "noise_scene",
+    "noise_label", "snr_db", "snr_set_db", "snr_measured_db", "level_db", "level_db_role",
+    "codec", "bandwidth", "bandwidth_label", "bitrate_set_kbps",
+    "bitrate_measured_kbps", "vbr_cbr", "seed", "input_sr", "opus_sr",
+    "duration_s", "opus_bytes", "mode",
+]
+
 BANDWIDTHS = {
     "narrowband": {"label": "窄带 8k", "sample_rate": 8000, "bitrate_min": 8, "bitrate_max": 12, "default_bitrate": 12},
     "wideband": {"label": "宽带 16k", "sample_rate": 16000, "bitrate_min": 16, "bitrate_max": 24, "default_bitrate": 16},
@@ -31,15 +50,17 @@ BANDWIDTHS = {
 DEFAULT_BANDWIDTH = "wideband"
 DEFAULT_BITRATE = 16
 DEFAULT_SEED = 42
+# Bump when mix/codec implementation changes so matrix namespaces do not reuse stale wavs.
+CHANNEL_IMPL_VERSION = "04-mix-opus-v1"
 
-# 六个噪声场景（DEMAND），地铁用 90dB 实验室档
+# level_db 仅是场景参考标签，不参与数字混音；真实混音强度由 snr_db 决定。
 NOISE_SCENES = [
     {"id": "NPARK", "label": "安静 · 公园", "snr_db": 25, "level_db": 45, "dir": "demand/NPARK", "preview": "NPARK_20s.wav"},
     {"id": "OOFFICE", "label": "办公室", "snr_db": 15, "level_db": 55, "dir": "demand/OOFFICE", "preview": "OOFFICE_20s.wav"},
     {"id": "PCAFETER", "label": "咖啡厅", "snr_db": 10, "level_db": 70, "dir": "demand/PCAFETER", "preview": "PCAFETER_20s.wav"},
     {"id": "PRESTO", "label": "食堂", "snr_db": 5, "level_db": 72, "dir": "demand/PRESTO", "preview": "PRESTO_20s.wav"},
     {"id": "STRAFFIC", "label": "路口 · 交通", "snr_db": 0, "level_db": 75, "dir": "demand/STRAFFIC", "preview": "STRAFFIC_20s.wav"},
-    {"id": "TMETRO", "label": "地铁 · 90dB", "snr_db": -10, "level_db": 90, "dir": "demand/TMETRO", "preview": "TMETRO_20s.wav"},
+    {"id": "TMETRO", "label": "地铁 · 高噪", "snr_db": -10, "level_db": 90, "dir": "demand/TMETRO", "preview": "TMETRO_20s.wav"},
 ]
 
 
@@ -72,11 +93,102 @@ def list_inputs():
     return [{"name": p.name, "path": str(p)} for p in sorted(EXAM_DIR.glob("*.wav"))]
 
 
+def scene_noise_files(scene):
+    """Ordered official noise wavs for one scene; missing folders yield an empty list."""
+    folder = NOISE_DIR / scene["dir"]
+    if not folder.is_dir():
+        return []
+    return sorted(path for path in folder.glob("*.wav") if path.is_file())
+
+
+def _asset_manifest_path():
+    return NOISE_DIR / "asset_manifest.json"
+
+
+def _declared_scene_sources():
+    manifest = _asset_manifest_path()
+    if not manifest.exists():
+        return {}
+    try:
+        payload = json.loads(manifest.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    scenes = payload.get("scenes") if isinstance(payload, dict) else {}
+    return scenes if isinstance(scenes, dict) else {}
+
+
+def inspect_benchmark_noise():
+    """Classify each scene's noise files: missing, invalid, wiring, or undeclared-valid."""
+    declared = _declared_scene_sources()
+    scenes = []
+    blockers = []
+    for scene in NOISE_SCENES:
+        files = scene_noise_files(scene)
+        reports = [wiring.inspect_wav(path) for path in files]
+        wiring_hits = [item for item in reports if item.get("purpose") == "wiring"]
+        valid = [item for item in reports if item.get("ok")]
+        invalid = [item for item in reports if item.get("purpose") == "invalid"]
+        if wiring_hits:
+            status = "wiring"
+            blockers.append(f"{scene['label']} 含合成布线素材，请移出后放入正式噪声")
+        elif not files:
+            status = "missing"
+            blockers.append(f"缺少正式噪声素材：{scene['label']}")
+        elif invalid or not valid:
+            status = "invalid"
+            reason = (invalid[0].get("reason") if invalid else "无法解码")
+            blockers.append(f"{scene['label']} 噪声不可用：{reason}")
+        elif scene["id"] in declared:
+            status = "declared"
+        else:
+            status = "undeclared"
+        scenes.append({
+            "id": scene["id"],
+            "label": scene["label"],
+            "status": status,
+            "source": (declared.get(scene["id"]) or {}).get("source") if isinstance(declared.get(scene["id"]), dict) else None,
+            "file_count": len(files),
+            "valid_count": len(valid),
+            "files": reports,
+        })
+    statuses = {item["status"] for item in scenes}
+    if "wiring" in statuses:
+        provenance = "wiring"
+    elif not scenes:
+        provenance = "missing"
+    elif statuses <= {"declared"}:
+        provenance = "declared"
+    elif statuses <= {"declared", "undeclared"}:
+        provenance = "undeclared"
+    else:
+        provenance = "incomplete"
+    return {
+        "ok": not blockers,
+        "provenance": provenance,
+        "provenance_note": {
+            "declared": "噪声来源已在 asset_manifest.json 中声明。",
+            "undeclared": "可解码噪声已放置；来源未声明，不当作已认证实验室录音。",
+            "wiring": "检测到 bootstrap 合成布线素材，不能进入正式基准。",
+            "incomplete": "六个场景尚未都具备可解码的非布线噪声。",
+            "missing": "尚未放置正式噪声。",
+        }.get(provenance, ""),
+        "blockers": blockers,
+        "scenes": scenes,
+    }
+
+
+def benchmark_noise_blockers():
+    """Reject missing, undecodable, or synthetic wiring noise, including renamed copies."""
+    return inspect_benchmark_noise()["blockers"]
+
+
 def list_noise_scenes():
     """返回六个噪声场景清单（含试听预览是否就绪）。"""
     scenes = []
     for s in NOISE_SCENES:
         item = dict(s)
+        item["level_db_role"] = "scene_reference_only"
+        item["level_db_note"] = "场景参考级别，不参与数字混音；实际注入强度以 SNR 为准。"
         item["preview_ready"] = (PREVIEW_DIR / s["preview"]).exists()
         scenes.append(item)
     return scenes
@@ -130,7 +242,9 @@ def _mix_noise(clean_path, scene, out_path, seed):
 
     Path(out_path).parent.mkdir(parents=True, exist_ok=True)
     sf.write(str(out_path), noisy, sr)
-    return sr
+    added = noise * scale
+    measured_snr = 10.0 * np.log10((float(np.mean(audio**2)) or 1e-12) / (float(np.mean(added**2)) or 1e-12))
+    return {"sample_rate": sr, "snr_measured_db": round(float(measured_snr), 3)}
 
 
 def encode_decode(input_wav, bandwidth=DEFAULT_BANDWIDTH, bitrate_kbps=DEFAULT_BITRATE, cbr=False, output_dir=None, seed=DEFAULT_SEED, noise_meta=None, reference=None):
@@ -191,13 +305,17 @@ def encode_decode(input_wav, bandwidth=DEFAULT_BANDWIDTH, bitrate_kbps=DEFAULT_B
     measured_bitrate = round(opus_bytes * 8 / duration / 1000, 1) if duration > 0 else 0.0
 
     row = {
+        "schema_version": 3,
         "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "reference": str(ref_path),
         "degraded": str(wav_path),
         "noise_scene": noise_meta["id"] if noise_meta else "",
         "noise_label": noise_meta["label"] if noise_meta else "无噪声",
         "snr_db": noise_meta["snr_db"] if noise_meta else "",
+        "snr_set_db": noise_meta["snr_db"] if noise_meta else "",
+        "snr_measured_db": noise_meta.get("snr_measured_db", "") if noise_meta else "",
         "level_db": noise_meta["level_db"] if noise_meta else "",
+        "level_db_role": "scene_reference_only" if noise_meta else "",
         "codec": "opus",
         "bandwidth": bandwidth,
         "bandwidth_label": bw["label"],
@@ -212,10 +330,10 @@ def encode_decode(input_wav, bandwidth=DEFAULT_BANDWIDTH, bitrate_kbps=DEFAULT_B
         "mode": "noise_codec" if noise_meta else "codec_only",
     }
 
-    csv_path = out_dir / "channel_runs.csv"
+    csv_path = out_dir / "channel_runs_v3.csv"
     existed = csv_path.exists()
     with csv_path.open("a", newline="", encoding="utf-8-sig") as f:
-        writer = csv.DictWriter(f, fieldnames=list(row.keys()))
+        writer = csv.DictWriter(f, fieldnames=CHANNEL_TRACE_FIELDS, extrasaction="ignore")
         if not existed:
             writer.writeheader()
         writer.writerow(row)
@@ -229,7 +347,10 @@ def encode_decode(input_wav, bandwidth=DEFAULT_BANDWIDTH, bitrate_kbps=DEFAULT_B
         "noise_scene": noise_meta["id"] if noise_meta else "",
         "noise_label": noise_meta["label"] if noise_meta else "无噪声",
         "snr_db": noise_meta["snr_db"] if noise_meta else None,
+        "snr_set_db": noise_meta["snr_db"] if noise_meta else None,
+        "snr_measured_db": noise_meta.get("snr_measured_db") if noise_meta else None,
         "level_db": noise_meta["level_db"] if noise_meta else None,
+        "level_db_role": "scene_reference_only" if noise_meta else None,
         "bandwidth": bandwidth,
         "bandwidth_label": bw["label"],
         "bitrate_set_kbps": bitrate_kbps,
@@ -241,7 +362,7 @@ def encode_decode(input_wav, bandwidth=DEFAULT_BANDWIDTH, bitrate_kbps=DEFAULT_B
     }
 
 
-def run(input_wav, noise_scenes=None, bandwidth=DEFAULT_BANDWIDTH, bitrate_kbps=DEFAULT_BITRATE, cbr=False, seed=DEFAULT_SEED):
+def run(input_wav, noise_scenes=None, bandwidth=DEFAULT_BANDWIDTH, bitrate_kbps=DEFAULT_BITRATE, cbr=False, seed=DEFAULT_SEED, output_dir=None):
     """按选中的噪声场景批量施加「噪声 + 编解码」，每个场景一条 degraded wav。"""
     input_wav = Path(input_wav)
     if not input_wav.exists():
@@ -259,7 +380,9 @@ def run(input_wav, noise_scenes=None, bandwidth=DEFAULT_BANDWIDTH, bitrate_kbps=
     if not scenes:
         scenes = [None]
 
-    tmp_dir = MATRIX_DIR / ".tmp_noisy"
+    target_dir = Path(output_dir) if output_dir else MATRIX_DIR
+    target_dir.mkdir(parents=True, exist_ok=True)
+    tmp_dir = target_dir / ".tmp_noisy"
     tmp_dir.mkdir(parents=True, exist_ok=True)
 
     runs = []
@@ -270,14 +393,14 @@ def run(input_wav, noise_scenes=None, bandwidth=DEFAULT_BANDWIDTH, bitrate_kbps=
         if scene:
             tmp_file = tmp_dir / f"{input_wav.stem}.wav"
             try:
-                _mix_noise(input_wav, scene, tmp_file, seed)
+                mix_meta = _mix_noise(input_wav, scene, tmp_file, seed)
             except Exception as exc:
                 runs.append({"status": "error", "noise_scene": scene["id"], "message": str(exc)})
                 continue
             codec_in = tmp_file
-            noise_meta = scene
+            noise_meta = {**scene, **mix_meta}
 
-        res = encode_decode(codec_in, bandwidth=bandwidth, bitrate_kbps=bitrate_kbps, cbr=cbr, seed=seed, noise_meta=noise_meta, reference=str(input_wav))
+        res = encode_decode(codec_in, bandwidth=bandwidth, bitrate_kbps=bitrate_kbps, cbr=cbr, seed=seed, noise_meta=noise_meta, reference=str(input_wav), output_dir=target_dir)
         runs.append(res)
 
         if tmp_file and tmp_file.exists():

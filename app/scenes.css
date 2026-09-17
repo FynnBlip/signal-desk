@@ -1,0 +1,60 @@
+/* One scene, one colour language. Hue identifies the scene; the meter carries
+   noise magnitude so colour never has to pretend to be a numeric scale. */
+:root{
+  --scene-neutral:#8a877e;
+}
+[data-scene="NPARK"]{--scene-from:#56ab2f;--scene-to:#a8e6cf;--scene-ink:#397522;--scene-soft:#eff8e9;--scene-gradient:linear-gradient(135deg,#56ab2f 0%,#a8e6cf 100%);--noise-level:18%}
+[data-scene="OOFFICE"]{--scene-from:#E8D5FF;--scene-to:#A4C7FF;--scene-ink:#5d64a7;--scene-soft:#f2edfb;--scene-gradient:linear-gradient(135deg,#E8D5FF 0%,#A4C7FF 100%);--noise-level:38%}
+[data-scene="PCAFETER"]{--scene-from:#667eea;--scene-to:#764ba2;--scene-ink:#5b4c94;--scene-soft:#eeebf7;--scene-gradient:linear-gradient(135deg,#667eea 0%,#764ba2 100%);--noise-level:62%}
+[data-scene="PRESTO"]{--scene-from:#ff9a9e;--scene-to:#fecfef;--scene-ink:#d5687d;--scene-soft:#fff0f5;--scene-gradient:linear-gradient(135deg,#ff9a9e 0%,#fecfef 100%);--noise-level:68%}
+[data-scene="STRAFFIC"]{--scene-from:#FA8072;--scene-to:#FFA07A;--scene-ink:#a94736;--scene-soft:#fff0eb;--scene-gradient:linear-gradient(135deg,#FA8072 0%,#FFA07A 100%);--noise-level:78%}
+[data-scene="TMETRO"]{--scene-from:#FF1744;--scene-to:#FF8A80;--scene-ink:#b71938;--scene-soft:#ffeaec;--scene-gradient:linear-gradient(135deg,#FF1744 0%,#FF8A80 100%);--noise-level:100%}
+
+.scene-badge{display:inline-flex;align-items:center;gap:8px;width:max-content;max-width:100%;padding:4px 9px;border-radius:999px;background:var(--scene-soft,#f0eee7);color:var(--scene-ink,var(--color-ink));font-size:12px;font-weight:600;line-height:1.25;white-space:nowrap}
+.scene-badge::before{content:"";width:8px;height:8px;flex:0 0 8px;border-radius:50%;background:var(--scene-gradient,var(--scene-neutral))}
+.scene-noise-meter{height:4px;border-radius:999px;background:rgba(38,37,31,.1);overflow:hidden}
+.scene-noise-meter>i{display:block;width:var(--noise-level,50%);height:100%;border-radius:inherit;background:var(--scene-gradient,var(--scene-neutral))}
+
+/* Comparison cards keep the canvas clean. The colour lives in a strong top
+   rule, a quiet wash, the chart, and the result. */
+#view-loop .insight-scene[data-scene]{position:relative;overflow:hidden;border-top:0;background:#fffefa}
+#view-loop .insight-scene[data-scene]::before{content:"";position:absolute;inset:0 0 auto;height:4px;background:var(--scene-gradient)}
+#view-loop .insight-scene[data-scene]:hover,#view-loop .insight-scene[data-scene][aria-expanded="true"]{border-color:color-mix(in srgb,var(--scene-ink) 45%,#dedbd2);background:linear-gradient(135deg,color-mix(in srgb,var(--scene-from) 3%,#fffefa),#fffefa 44%)}
+#view-loop .insight-scene[data-scene] .scene-tone-dot{background:var(--scene-gradient);box-shadow:0 0 0 3px var(--scene-soft)}
+#view-loop .insight-scene[data-scene] .plot-line{stroke:var(--scene-ink)}
+#view-loop .insight-scene[data-scene] .plot-area{fill:color-mix(in srgb,var(--scene-from) 7%,transparent)}
+#view-loop .insight-scene[data-scene="OOFFICE"] .plot-area{fill:rgba(164,199,255,.2)}
+#view-loop .insight-scene[data-scene] .plot-point circle{stroke:var(--scene-ink)}
+#view-loop .insight-scene[data-scene] .plot-point.is-winner circle{fill:var(--scene-ink)}
+#view-loop .insight-scene[data-scene] .plot-point.is-winner text{fill:var(--scene-ink)}
+#view-loop .scene-result b{color:var(--scene-ink)}
+#view-loop .insight-detail[data-scene]{border-top-color:var(--scene-ink)}
+
+/* Full gradients are most useful where the user is explicitly choosing a
+   noise scene. A warm veil keeps the controls readable and the page calm. */
+.noise-tile[data-scene]{color:#28261f;border-color:color-mix(in srgb,var(--scene-ink) 20%,#d8d5ca);background:linear-gradient(rgba(250,249,245,.68),rgba(250,249,245,.78)),var(--scene-gradient);box-shadow:none}
+.noise-tile[data-scene]::before{inset:0;background:var(--scene-gradient);filter:none;opacity:.16}
+.noise-tile[data-scene]::after{opacity:.05}
+.noise-tile[data-scene]:hover{box-shadow:0 10px 24px rgba(46,42,32,.09)}
+.noise-tile[data-scene] .nt-state,.noise-tile[data-scene] .nt-meta span,.noise-tile[data-scene] .nt-preview{background:rgba(255,255,252,.74);color:var(--scene-ink)}
+.noise-tile[data-scene].off{filter:grayscale(1);opacity:.38}
+.decision-scenes .noise-tile[data-scene]{border-color:color-mix(in srgb,var(--scene-ink) 20%,#d8d5ca);background:linear-gradient(rgba(250,249,245,.68),rgba(250,249,245,.78)),var(--scene-gradient);color:#28261f}
+.decision-scenes .noise-tile[data-scene] .scene-noise-meter{margin-top:8px}
+
+/* Scene colour follows evidence into rows and the in-page listening dock. */
+.raw-table tr[data-scene] td:first-child,.evidence-table tr[data-scene] td:first-child,.history-evidence-table tr[data-scene] td:first-child{box-shadow:inset 3px 0 0 color-mix(in srgb,var(--scene-ink) 70%,transparent)}
+.raw-table tr[data-scene].is-audio-selected td{background:var(--scene-soft)}
+.raw-table tr[data-scene].is-audio-selected td:first-child{box-shadow:inset 4px 0 0 var(--scene-ink)}
+.raw-table .scene-badge{font-size:11px;padding:3px 7px}
+.raw-table td.score.is-row-best{color:var(--color-ink);font-weight:750;text-decoration:underline;text-decoration-color:#b7b3a8;text-underline-offset:4px;background:transparent}
+.raw-audio-grid[data-scene]{border-color:color-mix(in srgb,var(--scene-ink) 34%,#dbe2d8)}
+.raw-audio-grid[data-scene] .raw-audio-dock-head{border-top:4px solid transparent;border-image:var(--scene-gradient) 1}
+.raw-audio-dock-head small{display:flex;align-items:center;gap:9px}
+.raw-audio-grid[data-scene] .raw-audio-player{background:var(--scene-soft)}
+.raw-audio-grid[data-scene] .raw-audio-clip[aria-pressed="true"]{border-color:var(--scene-ink);background:var(--scene-soft);color:var(--scene-ink);box-shadow:inset 0 0 0 1px var(--scene-ink)}
+.golden-scene-context{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:4px 0 14px}
+.golden-scene-context .scene-noise-meter{width:120px}
+
+.channel-result-row{display:grid;grid-template-columns:minmax(112px,auto) minmax(220px,.7fr) minmax(280px,1fr);gap:14px;align-items:center;padding:12px 0;border-top:1px solid var(--gray-200)}
+.channel-result-row audio{width:100%}
+@media(max-width:760px){.channel-result-row{grid-template-columns:1fr}.golden-scene-context{align-items:flex-start;flex-direction:column}.golden-scene-context .scene-noise-meter{width:100%}}

@@ -10,6 +10,10 @@
 
 import csv
 import datetime
+import hashlib
+import importlib.metadata
+import threading
+import uuid
 from pathlib import Path
 
 import librosa
@@ -29,6 +33,14 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 MODEL_DIR = PROJECT_ROOT / "data" / "models" / "denoise"
 MATRIX_DIR = PROJECT_ROOT / "data" / "matrix"
 DENOISED_DIR = PROJECT_ROOT / "data" / "denoised"
+TRACE_SCHEMA_VERSION = 3
+TRACE_FIELDS = [
+    "schema_version", "run_id", "timestamp", "slot_id", "provider_id",
+    "provider_version", "model_artifact", "model_artifact_sha256", "strength", "strength_mode",
+    "input", "input_sha256", "output", "output_sha256", "input_sample_rate",
+    "work_sample_rate", "duration_s",
+]
+_TRACE_LOCK = threading.Lock()
 
 MODEL_FILES = {
     "gtcrn": "gtcrn_simple.onnx",
@@ -44,6 +56,58 @@ MODEL_LABELS = {
     "deepfilternet3": "DeepFilterNet3 · 48kHz 全带",
     "noisereduce": "NoiseReduce · 谱门控（prop_decrease 强度旋钮）",
 }
+
+
+def _sha256_file(path):
+    digest = hashlib.sha256()
+    with Path(path).open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _provider_provenance(model):
+    if model == "noisereduce":
+        try:
+            version = importlib.metadata.version("noisereduce")
+        except importlib.metadata.PackageNotFoundError:
+            version = "unknown"
+        return {"provider_version": version, "model_artifact": "python:noisereduce", "model_artifact_sha256": ""}
+    path = MODEL_DIR / MODEL_FILES[model]
+    return {
+        "provider_version": "onnx",
+        "model_artifact": path.name,
+        "model_artifact_sha256": _sha256_file(path) if path.is_file() else "",
+    }
+
+
+def _trace_path():
+    """Choose a fixed-schema trace without rewriting legacy or malformed logs."""
+    base = DENOISED_DIR / "denoise_runs_v3.csv"
+    if not base.exists() or base.stat().st_size == 0:
+        return base
+    try:
+        with base.open(encoding="utf-8-sig", newline="") as handle:
+            header = next(csv.reader(handle), [])
+    except OSError:
+        header = []
+    if header == TRACE_FIELDS:
+        return base
+    suffix = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    return DENOISED_DIR / f"denoise_runs_v3_{suffix}.csv"
+
+
+def _append_trace(row):
+    DENOISED_DIR.mkdir(parents=True, exist_ok=True)
+    with _TRACE_LOCK:
+        path = _trace_path()
+        existed = path.exists() and path.stat().st_size > 0
+        with path.open("a", newline="", encoding="utf-8-sig") as handle:
+            writer = csv.DictWriter(handle, fieldnames=TRACE_FIELDS, extrasaction="ignore")
+            if not existed:
+                writer.writeheader()
+            writer.writerow({key: row.get(key, "") for key in TRACE_FIELDS})
+    return path
 
 
 def _stft(x, n_fft=512, hop=256, win=512):
@@ -182,6 +246,7 @@ def process(input_wav, output_wav, version_spec=None, session=None):
         # NoiseReduce 用自己的强度旋钮 prop_decrease，按输入采样率直接工作，不重采样。
         enhanced = _denoise_noisereduce(audio, in_sr, prop_decrease=strength)
         work_sr = in_sr
+        strength_mode = "native_prop_decrease"
     else:
         if session is None:
             session, work_sr = load_model(model_name)
@@ -207,6 +272,7 @@ def process(input_wav, output_wav, version_spec=None, session=None):
         if strength < 1.0:
             n = min(len(audio), len(enhanced))
             enhanced = enhanced[:n] * strength + audio[:n] * (1.0 - strength)
+        strength_mode = "wet_dry_demo"
 
     out_path = Path(output_wav)
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -220,6 +286,7 @@ def process(input_wav, output_wav, version_spec=None, session=None):
         "input_sample_rate": int(in_sr),
         "work_sample_rate": int(work_sr),
         "duration_s": round(len(audio) / in_sr, 2),
+        "strength_mode": strength_mode,
         "version_spec": spec,
     }
 
@@ -237,6 +304,7 @@ def list_models():
                 "work_sample_rate": MODEL_SAMPLE_RATES[model_id],
                 "bytes": path.stat().st_size if path.exists() else 0,
                 "ready": path.exists(),
+                "strength_mode": "wet_dry_demo",
             }
         )
     models.append(
@@ -247,6 +315,7 @@ def list_models():
             "work_sample_rate": MODEL_SAMPLE_RATES["noisereduce"],
             "bytes": 0,
             "ready": HAS_NOISEREDUCE,
+            "strength_mode": "native_prop_decrease",
         }
     )
     return models
@@ -283,24 +352,25 @@ def run(input_wav, model="gtcrn", strength=1.0):
     if result.get("status") != "ok":
         return result
 
+    provenance = _provider_provenance(model)
     row = {
-        "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "model": model,
+        "schema_version": TRACE_SCHEMA_VERSION,
+        "run_id": f"dn-{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:8]}",
+        "timestamp": datetime.datetime.now().isoformat(timespec="seconds"),
+        "slot_id": "05_denoise",
+        "provider_id": model,
+        **provenance,
         "strength": strength,
-        "model_name": MODEL_LABELS.get(model, model),
+        "strength_mode": result.get("strength_mode"),
         "input": str(input_wav),
+        "input_sha256": _sha256_file(input_wav),
         "output": str(output_wav),
+        "output_sha256": _sha256_file(output_wav),
         "input_sample_rate": result.get("input_sample_rate"),
         "work_sample_rate": result.get("work_sample_rate"),
         "duration_s": result.get("duration_s"),
     }
-    csv_path = DENOISED_DIR / "denoise_runs.csv"
-    existed = csv_path.exists()
-    with csv_path.open("a", newline="", encoding="utf-8-sig") as f:
-        writer = csv.DictWriter(f, fieldnames=list(row.keys()))
-        if not existed:
-            writer.writeheader()
-        writer.writerow(row)
+    csv_path = _append_trace(row)
 
     return {
         "status": "ok",
@@ -314,4 +384,9 @@ def run(input_wav, model="gtcrn", strength=1.0):
         "work_sample_rate": result.get("work_sample_rate"),
         "duration_s": result.get("duration_s"),
         "csv": str(csv_path),
+        "run_id": row["run_id"],
+        "trace_schema_version": TRACE_SCHEMA_VERSION,
+        "strength_mode": result.get("strength_mode"),
+        "input_sha256": row["input_sha256"],
+        "output_sha256": row["output_sha256"],
     }
