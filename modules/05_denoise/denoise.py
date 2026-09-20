@@ -2,7 +2,7 @@
 """05 降噪 DUT —— GTCRN / DeepFilterNet3 降噪闭环（第一版）。
 
 复用旧项目 src/denoise_lab.py 的 ONNX 推理实现，去掉命令行入口，
-按 Signal Desk 模块化接口暴露 list_models / list_inputs / run。
+按 通话评测实验室 模块化接口暴露 list_models / list_inputs / run。
 
 数据红线：输入取 04 信道仿真 degraded wav（data/matrix/*.wav）；
 输出按模型落 data/denoised/<model>/；每条 run 追加 denoise_runs.csv。

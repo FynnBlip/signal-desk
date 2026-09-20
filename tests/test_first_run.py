@@ -126,9 +126,19 @@ class FirstRunTests(unittest.TestCase):
         self.assertIn('/lab.js', html)
         self.assertIn('/lab.css', html)
         self.assertNotIn('/workbench.js', html)
+        self.assertIn('/assets/runtime-architecture.webm', source)
+        self.assertIn('/assets/runtime-architecture.webp', source)
+        self.assertIn('/architecture.html', source)
         self.assertIn('benchmark?.readiness', source)
         self.assertIn('ready&&!ready.ready', source)
         self.assertIn('检查音频缓存与测试集', source)
+
+    def test_runtime_architecture_entry_uses_generated_artifact(self):
+        response = main.runtime_architecture()
+        path = Path(response.path)
+        self.assertEqual(path.name, "signal-desk-runtime.html")
+        self.assertTrue(path.exists())
+        self.assertIn("通话评测实验室 · 运行架构", path.read_text(encoding="utf-8"))
 
     def test_insufficient_reference_voices_never_start_generation(self):
         with patch.object(main.tts, "plan_voice_cohort", return_value={"status": "ok", "selected_count": 25}), \

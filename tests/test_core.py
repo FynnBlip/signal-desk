@@ -541,6 +541,31 @@ class LoopGateTests(unittest.TestCase):
         self.assertIn("| 场景 | 音色 | 样本 ID | SNR | 当前版本 PQ | 待验证版本 PQ | 新版−当前 ΔPQ | 判读 |", markdown)
         self.assertIn("| 办公室 | 音色未记录 | 样本 ID 未记录 | 15 dB | 5.2 | 5.4 | +0.2 | 上行 |", markdown)
 
+    def test_excel_report_separates_rounds_and_sample_evidence(self):
+        from openpyxl import load_workbook
+
+        state = {
+            "baseline": "v1", "candidate": "v2", "status": "review",
+            "rounds": [{
+                "round": 1, "experiment_id": "exp", "run_id": "run", "time": "2026-09-20 12:00:00",
+                "baseline": "v1", "candidate": "v2",
+                "judge": {"verdict": "整体晋级", "regular_delta": 0.2},
+                "decision": {"action": "accept", "reason": "测试判定"},
+                "rows": [{
+                    "scene_id": "OOFFICE", "noise_label": "办公室", "snr_db": 15,
+                    "voice_name": "测试音色", "stem": "sample", "baseline_pq": 5.2, "candidate_pq": 5.4,
+                }],
+            }],
+        }
+        with tempfile.TemporaryDirectory() as temp:
+            path = loop.export_report_excel(state, Path(temp) / "report.xlsx")
+            workbook = load_workbook(path, read_only=True)
+            self.assertEqual(workbook.sheetnames, ["概览", "轮次", "样本明细"])
+            sample = list(workbook["样本明细"].iter_rows(values_only=True))[1]
+            self.assertEqual(sample[3:7], ("办公室", 55, 15, "测试音色"))
+            self.assertAlmostEqual(sample[10], 0.2)
+            workbook.close()
+
 
 class TraceAndStoreTests(unittest.TestCase):
     def test_file_hash_changes_after_same_path_is_rewritten(self):
@@ -595,6 +620,30 @@ class ProviderRegistryTests(unittest.TestCase):
         items = registry.ProviderRegistry(ROOT / "modules").modules()
         self.assertEqual(len(items), 7)
         self.assertTrue(all(item.get("providers") for item in items))
+
+
+class VoiceDistributionTests(unittest.TestCase):
+    def test_cached_acoustic_vectors_produce_real_three_dimensional_projection(self):
+        feature_names = server_main.voice.FEATURE_ORDER[:8] + [f"mfcc_{i}" for i in range(13)]
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            cohort = root / "data" / "voice" / "cohorts" / "fixture"
+            cohort.mkdir(parents=True)
+            source = cohort / "voice_clusters.csv"
+            with source.open("w", encoding="utf-8", newline="") as handle:
+                writer = csv.DictWriter(handle, fieldnames=["file", "voice_name", "cluster", *feature_names])
+                writer.writeheader()
+                for row_index in range(6):
+                    row = {"file": f"{row_index}.wav", "voice_name": f"voice-{row_index}", "cluster": row_index % 2}
+                    row.update({name: (row_index + 1) * (column + 2) + (row_index ** 2) * (column % 3) for column, name in enumerate(feature_names)})
+                    writer.writerow(row)
+            with patch.object(server_main.voice, "PROJECT_ROOT", root):
+                result = server_main.voice.load_distribution("fixture")
+        self.assertEqual(len(result["points"]), 6)
+        self.assertEqual(result["embedding"]["method"], "PCA")
+        self.assertEqual(result["embedding"]["source_dimensions"], 21)
+        self.assertTrue(all(isinstance(point["z"], float) for point in result["points"]))
+        self.assertIn("f2_mean", result["points"][0])
 
 
 class HttpContractTests(unittest.TestCase):

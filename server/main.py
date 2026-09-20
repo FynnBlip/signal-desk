@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Signal Desk 本地服务（元框架）。
+"""通话评测实验室 本地服务（元框架）。
 
 职责：把 modules/ 下的插件挂成 HTTP 接口，前端 app/ 负责交互。
 启动：python server/main.py
@@ -16,7 +16,7 @@ import uuid
 from pathlib import Path
 
 from fastapi import Body, FastAPI
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 
 try:
@@ -47,7 +47,7 @@ denoise = _load_module(PROJECT_ROOT / "modules" / "05_denoise" / "denoise.py")
 evaluate = _load_module(PROJECT_ROOT / "modules" / "06_evaluate" / "evaluate.py")
 loop = _load_module(PROJECT_ROOT / "modules" / "07_loop" / "loop.py")
 
-app = FastAPI(title="Signal Desk")
+app = FastAPI(title="通话评测实验室")
 RUN_STORE = RunStore(PROJECT_ROOT / "data" / "runs")
 PROVIDERS = ProviderRegistry(PROJECT_ROOT / "modules")
 JOB_LOCK = threading.RLock()
@@ -232,6 +232,11 @@ def voice_clusters():
 @app.get("/api/voice/distribution")
 def voice_distribution():
     return voice.load_distribution()
+
+
+@app.get("/api/voice/cohorts/{cohort_id}/distribution")
+def voice_cohort_distribution(cohort_id: str):
+    return voice.load_distribution(cohort_id)
 
 
 VOICE_COHORT_JOB = {
@@ -1355,18 +1360,65 @@ def loop_apply(payload: LoopApplyRequest):
 
 @app.get("/api/loop/report")
 def loop_report():
-    """第七块：返回人可读 Markdown 结论报告。"""
+    """第七块：返回网页摘要数据，并保留 Markdown 归档文本。"""
     state = loop.load_status()
     is_blank = state.get("workspace_mode") == "blank" and not state.get("baseline") and not state.get("candidate")
     tournament = None if is_blank else loop.load_version_tournament(state.get("config"))
     if tournament:
         state["version_summary"] = tournament.get("version_summary")
-    return {"markdown": loop.build_markdown(state)}
+    summary = state.get("version_summary") or loop.build_version_summary(state)
+    return {
+        "summary": {
+            "benchmark": (state.get("benchmark") or loop.GOLDEN_BENCHMARK).get("label"),
+            "baseline": state.get("baseline"),
+            "candidate": state.get("candidate"),
+            "status": state.get("status"),
+            "conclusion": state.get("conclusion"),
+            "recommendation": summary.get("recommendation") or {},
+            "shared_samples": summary.get("shared_samples"),
+        },
+        "rounds": state.get("rounds") or [],
+        "markdown": loop.build_markdown(state),
+    }
+
+
+@app.get("/api/loop/report.md")
+def loop_report_markdown():
+    """Download the durable experiment report as Markdown."""
+    state = loop.load_status()
+    return PlainTextResponse(
+        loop.build_markdown(state),
+        media_type="text/markdown; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="audio-call-lab-report.md"'},
+    )
+
+
+@app.get("/api/loop/report.xlsx")
+def loop_report_excel():
+    """Download conclusions and full per-sample evidence as an Excel workbook."""
+    state = loop.load_status()
+    is_blank = state.get("workspace_mode") == "blank" and not state.get("baseline") and not state.get("candidate")
+    tournament = None if is_blank else loop.load_version_tournament(state.get("config"))
+    if tournament:
+        state["version_summary"] = tournament.get("version_summary")
+    out = loop.LOOP_DIR / "audio_call_lab_report.xlsx"
+    loop.export_report_excel(state, out)
+    return FileResponse(
+        out,
+        filename="audio_call_lab_report.xlsx",
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
 
 
 @app.get("/tokens.css", include_in_schema=False)
 def design_tokens_css():
     return FileResponse(PROJECT_ROOT / "tokens.css", media_type="text/css")
+
+
+@app.get("/architecture.html", include_in_schema=False)
+def runtime_architecture():
+    """Open the explorable runtime diagram without duplicating the generated artifact."""
+    return FileResponse(PROJECT_ROOT / "docs" / "signal-desk-runtime.html", media_type="text/html")
 
 
 @app.get("/", include_in_schema=False)

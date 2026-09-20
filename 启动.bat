@@ -19,7 +19,7 @@ set "PYTHON_EXE=python"
 goto :python_ready
 
 :python_missing
-echo [Signal Desk] 未找到 Python 3.12。请先安装 Python，再运行 pip install -r requirements.txt
+echo [通话评测实验室] 未找到 Python 3.12。请先安装 Python，再运行 pip install -r requirements.txt
 pause
 exit /b 1
 
@@ -27,17 +27,17 @@ exit /b 1
 
 netstat -ano | findstr ":8090" | findstr "LISTENING" >nul
 if errorlevel 1 (
-  echo [Signal Desk] 正在启动本地服务，首次加载依赖可能需要几十秒...
+  echo [通话评测实验室] 正在启动本地服务，首次加载依赖可能需要几十秒...
   start "" /min "%PYTHON_EXE%" %PYTHON_ARGS% server\main.py
 )
 
 powershell -NoProfile -Command "$deadline=(Get-Date).AddSeconds(120); do { try { $r=Invoke-RestMethod -Uri 'http://127.0.0.1:8090/api/health' -TimeoutSec 1; if($r.status -eq 'ok') { exit 0 } } catch {}; Start-Sleep -Seconds 1 } while((Get-Date) -lt $deadline); exit 1" >nul 2>nul
 if not errorlevel 1 goto :ready
 
-echo [Signal Desk] 120 秒内未通过健康检查。请在终端运行 "%PYTHON_EXE%" %PYTHON_ARGS% server\main.py 查看错误。
+echo [通话评测实验室] 120 秒内未通过健康检查。请在终端运行 "%PYTHON_EXE%" %PYTHON_ARGS% server\main.py 查看错误。
 pause
 exit /b 1
 
 :ready
-echo [Signal Desk] 服务已就绪，正在打开工作台...
+echo [通话评测实验室] 服务已就绪，正在打开工作台...
 start "" "http://127.0.0.1:8090"

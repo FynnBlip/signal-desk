@@ -5,7 +5,7 @@ const labModules = [
   ['denoise','05','降噪版本','V1 → V4'],['evaluate','06','客观评测','AudioBox PQ'],
   ['loop','07','听审与迭代','人工确认 · 实验留痕']
 ];
-const labScenes = [['NPARK','安静 · 公园',25],['OOFFICE','办公室',15],['PCAFETER','咖啡厅',10],['PRESTO','食堂',5],['STRAFFIC','路口 · 交通',0],['TMETRO','地铁 · 高噪',-10]];
+const labScenes = [['NPARK','安静 · 公园',25,45],['OOFFICE','办公室',15,55],['PCAFETER','咖啡厅',10,70],['PRESTO','食堂',5,72],['STRAFFIC','路口 · 交通',0,75],['TMETRO','地铁 · 高噪',-10,90]];
 let labData = null, labMode = 'round', labBusy = false, labSignature = '', labPage='lab', labPanelRequest=0, labConnectionError=false;
 let labSubmitting=false,labRunUncertain=false,labPollEpoch=0;
 const esc = s => String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -36,12 +36,28 @@ function initLab() {
   host.innerHTML=`<header class="lab-heading"><div><p>音频实验室 / 通话质量</p><h1>听见每一版的变化。</h1><div class="lab-intro">同一段语料，不同的声音与噪声。比较降噪版本，让每次改进都有依据。</div></div><button class="lab-primary" onclick="labOpen('loop','run')">配置与运行 <span>↗</span></button></header>
   <div class="lab-route" aria-label="实验数据流"><button onclick="labOpen('corpus')">语料</button><i>→</i><button onclick="labOpen('tts')">TTS 音色</button><i>→</i><button onclick="labOpen('voice')">C1–C4 聚类</button><i>→</i><button onclick="labOpen('channel')">六场景信道</button><i>→</i><button onclick="labOpen('denoise')">降噪版本</button><i>→</i><button onclick="labOpen('evaluate')">PQ 评测</button><i>→</i><button onclick="labOpen('loop','conclusion')">听审 · 下一轮</button></div>
   <div id="labLive" class="lab-live" aria-live="polite">正在读取实验状态…</div>
+  <section class="lab-architecture" aria-labelledby="labArchitectureTitle"><div class="lab-section-head"><div><p class="lab-eyebrow">运行架构</p><h2 id="labArchitectureTitle">一次评测，如何跑完？</h2><p id="labArchitectureDescription">首次准备语料、TTS 与声线分组；日常迭代复用缓存，从信道仿真一路跑到客观评测与人工确认。</p></div><a class="lab-secondary" href="/architecture.html" target="_blank" rel="noopener">查看交互架构 ↗</a></div><div class="lab-architecture-stage"><video id="labArchitectureVideo" muted playsinline preload="metadata" poster="/assets/runtime-architecture.webp" aria-describedby="labArchitectureDescription"><source src="/assets/runtime-architecture.webm" type="video/webm"><a href="/architecture.html" target="_blank" rel="noopener">打开交互架构</a></video><button id="labArchitectureReplay" class="lab-architecture-replay" type="button" aria-label="重新播放运行架构动效">重播动效</button></div></section>
   <section class="lab-results"><div class="lab-section-head"><div><h2>每个场景，改善了吗？</h2><p id="labSource">正在读取结果来源…</p></div><div class="lab-switch" aria-label="比较数据来源"><button aria-pressed="true" onclick="labSwitch('round')">本轮比较</button><button aria-pressed="false" onclick="labSwitch('versions')">四版本基准</button></div></div><div id="labCharts" class="lab-charts"></div></section>
   <details class="lab-trace"><summary>运行记录 <span>Trace · 展开查看</span></summary><div id="labTrace"></div></details>`;
   document.querySelector('main').prepend(host);
+  labArchitectureMotion();
   const connection=document.createElement('div');connection.id='labConnection';connection.hidden=true;connection.setAttribute('role','alert');document.querySelector('main').prepend(connection);
   labRefresh();
   setInterval(()=>{ if(!document.hidden){labRefresh();if(labPage==='tts')labPreparePoll();} },5000);
+}
+function labArchitectureMotion(){
+  const video=document.getElementById('labArchitectureVideo'),replay=document.getElementById('labArchitectureReplay');
+  if(!video||!replay)return;
+  const reduced=window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  const play=()=>{video.currentTime=0;video.play().catch(()=>{});};
+  replay.addEventListener('click',play);
+  video.addEventListener('play',()=>replay.classList.add('is-playing'));
+  video.addEventListener('ended',()=>replay.classList.remove('is-playing'));
+  if(reduced)return;
+  if('IntersectionObserver' in window){
+    const observer=new IntersectionObserver(entries=>{if(entries.some(entry=>entry.isIntersecting&&entry.intersectionRatio>=.35)){observer.disconnect();play();}},{threshold:[.35]});
+    observer.observe(video);
+  }else play();
 }
 async function labRefresh() {
   if(labBusy)return; labBusy=true;
@@ -96,7 +112,7 @@ function renderLab(){
   document.getElementById('labSource').textContent=labMode==='versions'?`四版本基准 · ${summary.shared_samples??0} 个共同样本${summary.status!=='ok'?' · 覆盖不足，暂不推荐版本':''}`:`${label} · ${result?.rows?.length??0} 个样本 · PQ 越高越好`;
   document.querySelectorAll('.lab-switch button').forEach((b,i)=>b.setAttribute('aria-pressed',String((i===0)===(labMode==='round'))));
   document.querySelector('.lab-switch button').textContent=archived?'最近已完成比较':'本轮比较';
-  document.getElementById('labCharts').innerHTML=labScenes.map(([id,name,snr])=>{
+  document.getElementById('labCharts').innerHTML=labScenes.map(([id,name,snr,level])=>{
     let versions,values,count;
     if(labMode==='versions'){
       const scene=(summary.scenes||[]).find(s=>Number(s.snr_db)===snr);
@@ -107,7 +123,7 @@ function renderLab(){
       versions=[baseline,candidate];values=[mean('baseline_pq'),mean('candidate_pq')];count=rows.length;
     }
     const delta=values.length===2&&values.every(v=>typeof v==='number')?values[1]-values[0]:null;
-    return `<button class="lab-scene" data-scene="${id}" onclick="labInspect('${id}')"><div class="lab-scene-head"><h3>${name}</h3><span>${snr} dB</span></div>${labPlot(versions,values)}<div class="lab-scene-foot"><strong>${labMode==='round'?labSigned(delta):'查看版本表现'}</strong><span>${count===0?'暂无样本':labMode==='round'?'新版 − 当前':'基准数据'} <b>↗</b></span></div></button>`;
+    return `<button class="lab-scene" data-scene="${id}" onclick="labInspect('${id}')"><div class="lab-scene-head"><h3>${name}</h3><span title="场景参考环境声级；仿真参数保留在实验明细中">约 ${level} dB</span></div>${labPlot(versions,values)}<div class="lab-scene-foot"><strong>${labMode==='round'?labSigned(delta):'查看版本表现'}</strong><span>${count===0?'暂无样本':labMode==='round'?'新版 − 当前':'基准数据'} <b>↗</b></span></div></button>`;
   }).join('');
   const events=job.events||[];
   document.getElementById('labTrace').innerHTML=events.length?events.slice(-24).map(e=>`<div><time>${esc(e.time||e.at||e.timestamp||'')}</time><b>${esc(e.stage||e.title||e.type||'事件')}</b><span>${esc(e.message||e.detail||'')}</span></div>`).join(''):'<p>当前没有运行中的 Trace。历史实验的配置与判定保存在实验历史中。</p>';
@@ -140,14 +156,12 @@ async function labPanel(){
       labChosenCohort=chosen?.id||null;
       let d;
       if(chosen&&!chosen.active){
-        const result=chosen.clustered?await labGet(`/api/voice/cohorts/${encodeURIComponent(chosen.id)}/result`):{};
-        if(result.status==='error')throw new Error(result.message);
-        d={cohort_id:chosen.id,points:(result.files||[]).filter(f=>Number.isFinite(f.f0_mean)&&Number.isFinite(f.f1_mean)).map(f=>({file:f.file,name:f.voice_name||f.voice_id||f.file,cluster:f.cluster,x:f.f0_mean,y:f.f1_mean,audio_available:true}))};
+        d=chosen.clustered?await labGet(`/api/voice/cohorts/${encodeURIComponent(chosen.id)}/distribution`):{cohort_id:chosen.id,points:[]};
       }else d=await labGet('/api/voice/distribution');
       if(request!==labPanelRequest)return;
       if(labVoiceCohort!==d.cohort_id){labVoiceFilter=null;labVoiceSelection=null;}
       labVoiceCohort=d.cohort_id;labVoiceData=d;
-      description='每个点是一种真实音色。选择声线簇，或点选音色试听；位置来自缓存声学特征。';
+      description='每个点是一种真实音色。旋转声学向量空间，观察簇的结构，再点选音色试听。';
       content=labCohortControls(chosen)+`<div id="labVoiceMap"></div><button class="lab-primary" onclick="labOpen('channel')">下一步：六场景信道 →</button>`;
     }else if(page==='tts'){
       const [d,job,providers]=await Promise.all([labGet('/api/voice/cohorts'),labGet('/api/voice/cohorts/job'),labGet('/api/providers')]);description='同一段文本，多种音色。当前流程优先复用已生成的测试音频。';
@@ -159,7 +173,7 @@ async function labPanel(){
     }else if(page==='channel'){
       const noise=await labGet('/api/channel/noise/scenes');
       description='干净语音经过噪声与 Opus 编解码，再交给降噪算法。颜色始终对应同一场景。';
-      content=`<div class="lab-charts">${noise.scenes.map(({id,label,snr_db,preview,preview_ready})=>`<article class="lab-noise" data-scene="${esc(id)}"><h2>${esc(label)}</h2><strong>${snr_db}<small> dB SNR</small></strong>${preview_ready?labNoisePlayer(id,label,preview):'<p>噪声预览尚未准备</p>'}</article>`).join('')}</div><div class="lab-explain"><h2>固定信道，再比较版本</h2><p>固定基准使用 Opus 宽带 16 kHz、16 kbps VBR，随机种子 42。六场景使用相同音色；信道输出再交给每个降噪版本。</p></div><button class="lab-primary" onclick="labOpen('denoise')">下一步：降噪版本 →</button>`;
+      content=`<div class="lab-charts">${noise.scenes.map(({id,label,level_db,preview,preview_ready})=>`<article class="lab-noise" data-scene="${esc(id)}"><h2>${esc(label)}</h2><strong>${level_db}<small> dB 环境声级</small></strong>${preview_ready?labNoisePlayer(id,label,preview):'<p>噪声预览尚未准备</p>'}</article>`).join('')}</div><div class="lab-explain"><h2>固定信道，再比较版本</h2><p>固定基准使用 Opus 宽带 16 kHz、16 kbps VBR，随机种子 42。六场景使用相同音色；信道输出再交给每个降噪版本。</p></div><button class="lab-primary" onclick="labOpen('denoise')">下一步：降噪版本 →</button>`;
     }else if(page==='denoise'){
       const d=await labGet('/api/loop/options');description='改变降噪版本，固定其余条件。每次对比留下配置、评分与判定。';
       content=`<div class="lab-clusters">${(d.versions||[]).map(v=>`<article><h2>${esc(v.id.toUpperCase())}</h2><p>${esc(v.label)}</p></article>`).join('')}</div><button class="lab-primary" onclick="labOpen('loop','run')">选择比较版本 →</button>`;
@@ -303,27 +317,58 @@ function labSceneDetail(id){
  }else{const rows=(result?.rows||[]).filter(r=>r.scene_id===id);content=rows.length?labRowsTable(rows):'<p>此实验还没有该场景的样本。</p>';if(labData.job.result?.blind_pairs?.some(p=>rows.some(r=>r.stem===p.stem)))content+=`<button class="lab-primary" onclick="labListenScene('${id}')">试听本轮 A/B →</button>`;}
  document.getElementById('labPanel').innerHTML=labPanelHead(name,labMode==='versions'?'四版本基准':label)+content;
 }
-let labVoiceData={points:[]},labVoiceFilter=null,labVoiceSelection=null,labVoiceCohort;
+let labVoiceData={points:[]},labVoiceFilter=null,labVoiceSelection=null,labVoiceCohort,labVoiceDrag=null;
+let labVoiceRotation={yaw:-34,pitch:18};
 const labClusterColors=['#20866b','#3876ce','#ca7c35','#8859bf'];
+function labVoiceScene(){
+ const points=labVoiceData.points.map((p,index)=>({...p,index})).filter(p=>Number.isFinite(p.x)&&Number.isFinite(p.y)&&Number.isFinite(p.z));
+ if(!points.length)return '';
+ const bounds=key=>{const values=points.map(p=>p[key]),min=Math.min(...values),max=Math.max(...values),pad=Math.max((max-min)*.08,.001);return [min-pad,max+pad];};
+ const ranges={x:bounds('x'),y:bounds('y'),z:bounds('z')};
+ const norm=(value,key)=>(value-ranges[key][0])/(ranges[key][1]-ranges[key][0])*2-1;
+ const yaw=labVoiceRotation.yaw*Math.PI/180,pitch=labVoiceRotation.pitch*Math.PI/180;
+ const project=([x,y,z])=>{const x1=x*Math.cos(yaw)-z*Math.sin(yaw),z1=x*Math.sin(yaw)+z*Math.cos(yaw),y1=y*Math.cos(pitch)-z1*Math.sin(pitch),z2=y*Math.sin(pitch)+z1*Math.cos(pitch),perspective=1+z2*.08;return {x:410+x1*238*perspective,y:258-y1*178*perspective,z:z2};};
+ const clusters=[...new Set(points.map(p=>p.cluster))].sort((a,b)=>a-b);
+ const prepared=points.map(p=>({...p,n:[norm(p.x,'x'),norm(p.y,'y'),norm(p.z,'z')]}));
+ const centers=new Map(clusters.map(cluster=>{const members=prepared.filter(p=>p.cluster===cluster),n=[0,1,2].map(axis=>members.reduce((sum,p)=>sum+p.n[axis],0)/members.length);return [cluster,{n,p:project(n)}];}));
+ const edgePairs=[[0,1],[0,2],[0,4],[1,3],[1,5],[2,3],[2,6],[3,7],[4,5],[4,6],[5,7],[6,7]],corners=[];
+ for(const x of [-1,1])for(const y of [-1,1])for(const z of [-1,1])corners.push([x,y,z]);
+ const line=(a,b,cls)=>{const p1=project(a),p2=project(b);return `<line class="${cls}" x1="${p1.x.toFixed(1)}" y1="${p1.y.toFixed(1)}" x2="${p2.x.toFixed(1)}" y2="${p2.y.toFixed(1)}"/>`;};
+ const grid=[-.5,0,.5].map(t=>line([t,-1,-1],[t,-1,1],'voice-grid')+line([-1,-1,t],[1,-1,t],'voice-grid')+line([-1,t,-1],[1,t,-1],'voice-grid')).join('');
+ const box=edgePairs.map(([a,b])=>line(corners[a],corners[b],'voice-box')).join('');
+ const spokes=prepared.map(p=>{const point=project(p.n),center=centers.get(p.cluster).p,active=labVoiceFilter===null||labVoiceFilter===p.cluster;return `<line class="voice-spoke" x1="${center.x.toFixed(1)}" y1="${center.y.toFixed(1)}" x2="${point.x.toFixed(1)}" y2="${point.y.toFixed(1)}" stroke="${labClusterColors[p.cluster%4]}" opacity="${active?'.28':'.025'}"/>`;}).join('');
+ const dots=prepared.map(p=>({...p,screen:project(p.n)})).sort((a,b)=>a.screen.z-b.screen.z).map(p=>{const active=labVoiceFilter===null||labVoiceFilter===p.cluster,selected=p.file===labVoiceSelection,r=6.2+(p.screen.z+2)*.65,opacity=active?Math.max(.58,Math.min(.98,.78+p.screen.z*.08)):.08,color=labClusterColors[p.cluster%4];return `<g><circle class="voice-point-halo" cx="${p.screen.x.toFixed(1)}" cy="${p.screen.y.toFixed(1)}" r="${(r+7).toFixed(1)}" fill="${color}" opacity="${active?'.10':'0'}"/><circle class="voice-point${selected?' selected':''}" data-index="${p.index}" role="button" tabindex="${active?'0':'-1'}" aria-label="${esc(p.name)}，C${p.cluster+1}，F0 ${Math.round(p.f0_mean)} Hz，F1 ${Math.round(p.f1_mean)} Hz，F2 ${Math.round(p.f2_mean)} Hz" aria-pressed="${selected}" cx="${p.screen.x.toFixed(1)}" cy="${p.screen.y.toFixed(1)}" r="${r.toFixed(1)}" fill="${color}" opacity="${opacity.toFixed(2)}" onclick="labSelectVoice(${p.index})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();labSelectVoice(${p.index})}"><title>${esc(p.name)} · C${p.cluster+1}</title></circle></g>`;}).join('');
+ const centroids=clusters.map(cluster=>{const center=centers.get(cluster).p,active=labVoiceFilter===null||labVoiceFilter===cluster,color=labClusterColors[cluster%4];return `<g class="voice-centroid" opacity="${active?'1':'.12'}"><circle cx="${center.x.toFixed(1)}" cy="${center.y.toFixed(1)}" r="14" stroke="${color}"/><text x="${center.x.toFixed(1)}" y="${(center.y+4).toFixed(1)}" text-anchor="middle">C${cluster+1}</text></g>`;}).join('');
+ const origin=[-1,-1,-1],axes=[[[1.18,-1,-1],'PC1'],[[-1,1.18,-1],'PC2'],[[-1,-1,1.18],'PC3']];
+ const axisMarkup=axes.map(([end,label])=>{const p=project(end);return line(origin,end,'voice-axis')+`<text class="voice-axis-label" x="${p.x.toFixed(1)}" y="${p.y.toFixed(1)}">${label}</text>`;}).join('');
+ return `${grid}${box}${axisMarkup}${spokes}${dots}${centroids}`;
+}
 function labRenderVoice(){
  const host=document.getElementById('labVoiceMap');if(!host)return;
- const points=labVoiceData.points;
+ const points=labVoiceData.points.filter(p=>Number.isFinite(p.x)&&Number.isFinite(p.y)&&Number.isFinite(p.z));
  if(!points.length){host.innerHTML='<p>还没有可展示的声学特征。准备音频并完成聚类后再来查看。</p>';return;}
- const range=key=>{const a=points.map(p=>p[key]),lo=Math.floor(Math.min(...a)/50)*50,hi=Math.ceil(Math.max(...a)/50)*50;return [lo,Math.max(hi,lo+50)];};
- const [xmin,xmax]=range('x'),[ymin,ymax]=range('y');
- const x=v=>64+(v-xmin)/(xmax-xmin)*600,y=v=>364-(v-ymin)/(ymax-ymin)*320;
  const clusters=[...new Set(points.map(p=>p.cluster))].sort();
  if(!clusters.includes(labVoiceFilter))labVoiceFilter=null;
- host.innerHTML=`<div class="voice-map-head"><div><h2>声线分布</h2><p>${points.length} 个音色 · F0 × F1 实测值</p></div><button class="lab-secondary" onclick="labVoiceFilter=null;labRenderVoice()">显示全部</button></div><div class="voice-map-layout"><svg class="voice-scatter" viewBox="0 0 730 425" role="group" aria-label="声线分布，点选音色查看和试听">${Array.from({length:5},(_,i)=>{const vx=xmin+(xmax-xmin)*i/4,vy=ymin+(ymax-ymin)*i/4;return `<path d="M${x(vx)},44V364 M64,${y(vy)}H664"/><text x="${x(vx)}" y="386" text-anchor="middle">${Math.round(vx)}</text><text x="52" y="${y(vy)+4}" text-anchor="end">${Math.round(vy)}</text>`;}).join('')}<text x="360" y="418" text-anchor="middle">音高 F0 · Hz</text><text transform="translate(16 210) rotate(-90)" text-anchor="middle">第一共振峰 F1 · Hz</text>${points.map((p,i)=>`<circle role="button" tabindex="${labVoiceFilter===null||labVoiceFilter===p.cluster?'0':'-1'}" aria-label="${esc(p.name)}，C${p.cluster+1}" cx="${x(p.x)}" cy="${y(p.y)}" r="7" fill="${labClusterColors[p.cluster%4]}" opacity="${labVoiceFilter===null||labVoiceFilter===p.cluster?'.85':'.1'}" onclick="labSelectVoice(${i})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();labSelectVoice(${i})}"><title>${esc(p.name)} · C${p.cluster+1}</title></circle>`).join('')}</svg><div class="voice-legend">${clusters.map(c=>`<button aria-pressed="${labVoiceFilter===c}" onclick="labVoiceFilter=${c};labRenderVoice()"><i style="background:${labClusterColors[c%4]}"></i><b>C${c+1}</b><span>${points.filter(p=>p.cluster===c).length} 音色</span></button>`).join('')}<p>簇色用于区分声线，不表示噪声大小。</p></div></div><div id="voiceSelection" class="voice-selection" aria-live="polite">点选一个音色，听听它的声音。</div>`;
- const selected=points.findIndex(p=>p.file===labVoiceSelection&&(labVoiceFilter===null||p.cluster===labVoiceFilter));
+ const embedding=labVoiceData.embedding||{},variance=(embedding.explained_variance||[]).reduce((sum,value)=>sum+Number(value||0),0);
+ host.innerHTML=`<div class="voice-map-head"><div><h2>声学向量空间</h2><p>${points.length} 个音色 · ${embedding.source_dimensions||21} 维声学特征的 PCA 三维投影${variance?` · 保留 ${(variance*100).toFixed(0)}% 主要差异`:''}</p></div><div class="voice-map-actions"><span>拖动旋转 · 点选试听</span><button class="lab-secondary" onclick="labVoiceReset()">重置视角</button></div></div><div class="voice-map-layout"><div class="voice-space-shell"><svg id="voiceSpace" class="voice-scatter" viewBox="0 0 820 520" role="group" aria-label="声学向量空间，拖动旋转，点选音色查看和试听" onpointerdown="labVoiceRotateStart(event)"><rect class="voice-space-bg" width="820" height="520" rx="12"/><g id="voiceSpaceContent">${labVoiceScene()}</g></svg><span class="voice-space-mark">PCA · 3D</span></div><div class="voice-legend">${clusters.map(c=>`<button aria-pressed="${labVoiceFilter===c}" onclick="labVoiceFilter=${c};labRenderVoice()"><i style="background:${labClusterColors[c%4]}"></i><b>C${c+1}</b><span>${points.filter(p=>p.cluster===c).length} 音色</span></button>`).join('')}<button class="voice-show-all" onclick="labVoiceFilter=null;labRenderVoice()">显示全部</button><p>连线指向各簇中心；距离来自缓存声学向量，不代表音质高低。</p></div></div><div id="voiceSelection" class="voice-selection" aria-live="polite">点选一个音色，听听它的声音。</div>`;
+ const selected=labVoiceData.points.findIndex(p=>p.file===labVoiceSelection&&(labVoiceFilter===null||p.cluster===labVoiceFilter));
  if(selected>=0)labSelectVoice(selected);else labVoiceSelection=null;
 }
+function labUpdateVoiceSpace(){const content=document.getElementById('voiceSpaceContent');if(content)content.innerHTML=labVoiceScene();}
+function labVoiceReset(){labVoiceRotation={yaw:-34,pitch:18};labUpdateVoiceSpace();}
+function labVoiceRotateStart(event){
+ if(event.target.closest?.('.voice-point'))return;
+ event.preventDefault();labVoiceDrag={x:event.clientX,y:event.clientY,yaw:labVoiceRotation.yaw,pitch:labVoiceRotation.pitch};
+ window.addEventListener('pointermove',labVoiceRotateMove);window.addEventListener('pointerup',labVoiceRotateEnd,{once:true});
+}
+function labVoiceRotateMove(event){if(!labVoiceDrag)return;labVoiceRotation.yaw=labVoiceDrag.yaw+(event.clientX-labVoiceDrag.x)*.35;labVoiceRotation.pitch=Math.max(-55,Math.min(55,labVoiceDrag.pitch-(event.clientY-labVoiceDrag.y)*.28));labUpdateVoiceSpace();}
+function labVoiceRotateEnd(){labVoiceDrag=null;window.removeEventListener('pointermove',labVoiceRotateMove);}
 function labSelectVoice(index){
  const p=labVoiceData.points[index],cohort=labVoiceData.cohort_id;
  if(!p)return;labVoiceSelection=p.file;
  const src=cohort?`/api/voice/cohorts/${encodeURIComponent(cohort)}/audio/${encodeURIComponent(p.file)}`:`/api/tts/audio/${encodeURIComponent(p.file)}`;
- document.getElementById('voiceSelection').innerHTML=`<div><span>C${p.cluster+1}</span><h2>${esc(p.name)}</h2><p>F0 ${p.x.toFixed(1)} Hz · F1 ${p.y.toFixed(1)} Hz</p></div>${p.audio_available?`<audio controls preload="none" src="${esc(src)}" aria-label="试听 ${esc(p.name)}"></audio>`:'<p>此音色的缓存音频暂不可用。</p>'}`;
- document.querySelectorAll('.voice-scatter circle').forEach((c,i)=>{c.classList.toggle('selected',i===index);c.setAttribute('aria-pressed',String(i===index));});
+ document.getElementById('voiceSelection').innerHTML=`<div><span>C${p.cluster+1} · 声学坐标</span><h2>${esc(p.name)}</h2><p>F0 ${Number(p.f0_mean).toFixed(1)} Hz · F1 ${Number(p.f1_mean).toFixed(1)} Hz · F2 ${Number(p.f2_mean).toFixed(1)} Hz</p></div>${p.audio_available?`<audio controls preload="none" src="${esc(src)}" aria-label="试听 ${esc(p.name)}"></audio>`:'<p>此音色的缓存音频暂不可用。</p>'}`;
+ document.querySelectorAll('.voice-point').forEach(c=>{const selected=Number(c.dataset.index)===index;c.classList.toggle('selected',selected);c.setAttribute('aria-pressed',String(selected));});
 }
 function labNoisePlayer(id,label,preview){
  const src=`/api/channel/noise/preview/${encodeURIComponent(preview)}`;
@@ -343,12 +388,42 @@ function labSceneSummary(rows){
  const mean=(items,key)=>{const values=items.map(r=>r[key]).filter(Number.isFinite);return values.length?values.reduce((a,b)=>a+b,0)/values.length:null;};
  return `<div class="lab-table-wrap lab-scene-summary"><table><thead><tr><th>场景</th><th>样本</th><th>基准均值</th><th>候选均值</th><th>平均 ΔPQ</th><th>回退</th></tr></thead><tbody>${groups.map(g=>{const baseline=mean(g.rows,'baseline_pq'),candidate=mean(g.rows,'candidate_pq'),paired=g.rows.filter(r=>Number.isFinite(r.baseline_pq)&&Number.isFinite(r.candidate_pq));return `<tr data-scene="${esc(g.id)}"><td><span class="lab-scene-tag">${esc(g.label)}</span></td><td>${g.rows.length}</td><td>${labNum(baseline)}</td><td>${labNum(candidate)}</td><td>${baseline!==null&&candidate!==null?labSigned(candidate-baseline):'—'}</td><td>${paired.filter(r=>r.candidate_pq<r.baseline_pq).length} / ${paired.length}</td></tr>`;}).join('')}</tbody></table></div>`;
 }
-function labReview(){
- const r=labData.job.result;labReviewRun=r?.run_id||null;
- if(!r||r.status!=='ok')return `<div class="lab-explain"><h2>当前没有待复核结果</h2><p>完成一次版本比较后，在这里盲听并确认。本地已确认结果保存在实验历史中。</p><div class="lab-actions"><button class="lab-primary" onclick="labOpen('loop','run')">配置下一轮 →</button><button class="lab-secondary" onclick="labOpen('history')">查看历史判定</button></div></div>`;
- const pairs=r.blind_pairs||[], rows=r.rows||[];
- return `<div class="lab-review-context"><strong>${esc(r.baseline)} → ${esc(r.candidate)}</strong><span>待人工确认 · ${rows.length} 个样本</span></div><section class="lab-listening"><h2>先听差异</h2><label>选择样本<select id="labPairSelect" onchange="labPair()">${pairs.map(p=>{const row=rows.find(r=>r.stem===p.stem)||{};return `<option value="${esc(p.stem)}" ${labSelectedPair?.run===r.run_id&&labSelectedPair.stem===p.stem?'selected':''}>${esc(p.noise_label||row.scene_id)} · ${esc(row.voice_name||row.voice_id||p.stem)}</option>`;}).join('')}</select></label><div id="labPairAudio"></div><div class="lab-actions">${['A','B','tie'].map(p=>`<button class="lab-secondary lab-vote" onclick="labVote('${p}')" ${pairs.length?'':'disabled'}>${p==='tie'?'听感持平':p+' 更好'}</button>`).join('')}</div><p id="labVoteFeedback" role="status"></p></section><section class="lab-explain"><h2>再看判定</h2><p>${esc(r.decision?.reason||'尚未生成建议')}</p><details><summary>工程 Gate · 展开依据</summary>${(r.judge?.gate_checks||[]).map(g=>`<p>${g.pass?'✓':'×'} ${esc(g.label)} · 实际 ${esc(g.actual)} / 阈值 ${esc(g.threshold)}</p>`).join('')}</details><div class="lab-actions"><button class="lab-primary" onclick="labApplyDialog()">${esc(labActionLabel(r.decision?.action))} →</button><button class="lab-secondary" onclick="labApplyDialog(true)">放弃本轮结果</button></div><p>确认后才写入正式历史；播放和听感记录不会自动晋级版本。</p></section>`;
+function labReviewEntries(result){
+ const rowByStem=new Map((result?.rows||[]).map(row=>[row.stem,row]));
+ return (result?.blind_pairs||[]).map(pair=>{const row=rowByStem.get(pair.stem)||{};const baseline=Number(row.baseline_pq),candidate=Number(row.candidate_pq);return {pair,row,sceneId:row.scene_id||'',search:[pair.noise_label,row.noise_label,row.scene_id,row.voice_name,row.voice_id,pair.stem].filter(Boolean).join(' ').toLowerCase(),delta:Number.isFinite(baseline)&&Number.isFinite(candidate)?candidate-baseline:null};});
 }
+function labRecommendedPairs(result){
+ const entries=labReviewEntries(result),picked=[];
+ const choose=group=>{
+   if(!group.length)return;
+   const finite=group.filter(item=>Number.isFinite(item.delta)).sort((a,b)=>a.delta-b.delta);
+   const median=finite.length?finite[Math.floor((finite.length-1)/2)].delta:0;
+   const typical=(finite.length?finite:group).reduce((best,item)=>!best||Math.abs((item.delta??median)-median)<Math.abs((best.delta??median)-median)?item:best,null);
+   picked.push(typical);
+   if(group.length<2)return;
+   const regression=finite.find(item=>item!==typical&&item.delta<0);
+   const second=regression||group.filter(item=>item!==typical).sort((a,b)=>Math.abs((b.delta??median)-median)-Math.abs((a.delta??median)-median))[0];
+   if(second)picked.push(second);
+ };
+ labScenes.forEach(([id])=>choose(entries.filter(item=>item.sceneId===id)));
+ choose(entries.filter(item=>!labScenes.some(([id])=>id===item.sceneId)));
+ return picked.map(item=>item.pair);
+}
+function labPairLabel(pair,rows){const row=rows.find(item=>item.stem===pair.stem)||{};return `${pair.noise_label||row.noise_label||row.scene_id||'未知场景'} · ${row.voice_name||row.voice_id||pair.stem}`;}
+function labReview(){
+  const r=labData.job.result;labReviewRun=r?.run_id||null;
+  if(!r||r.status!=='ok')return `<div class="lab-explain"><h2>当前没有待复核结果</h2><p>完成一次版本比较后，在这里盲听并确认。本地已确认结果保存在实验历史中。</p><div class="lab-actions"><button class="lab-primary" onclick="labOpen('loop','run')">配置下一轮 →</button><button class="lab-secondary" onclick="labOpen('history')">查看历史判定</button></div></div>`;
+  const pairs=r.blind_pairs||[], rows=r.rows||[];
+  const recommended=labRecommendedPairs(r),selected=pairs.find(p=>labSelectedPair?.run===r.run_id&&labSelectedPair.stem===p.stem);if(selected&&!recommended.some(p=>p.stem===selected.stem))recommended.unshift(selected);
+  return `<div class="lab-review-context"><strong>${esc(r.baseline)} → ${esc(r.candidate)}</strong><span>待人工确认 · ${rows.length} 个样本</span></div><section class="lab-listening"><h2>先听差异</h2><p class="lab-listening-note">已从每个场景抽取 1–2 条代表样本。先听这 ${recommended.length} 条；需要定位具体音色时，再搜索完整样本。</p><label>建议试听<select id="labPairSelect" onchange="labPair()">${recommended.map(p=>`<option value="${esc(p.stem)}" ${selected?.stem===p.stem?'selected':''}>${esc(labPairLabel(p,rows))}</option>`).join('')}</select></label><div id="labPairAudio"></div><div class="lab-actions">${['A','B','tie'].map(p=>`<button class="lab-secondary lab-vote" onclick="labVote('${p}')" ${pairs.length?'':'disabled'}>${p==='tie'?'听感持平':p+' 更好'}</button>`).join('')}</div><p id="labVoteFeedback" role="status"></p><details class="lab-sample-search"><summary>查找其他样本 · ${pairs.length} 条</summary><label>输入场景、音色或样本 ID<input id="labPairSearch" oninput="labFilterPairs(this.value)" autocomplete="off"></label><div id="labPairSearchResults"><p>输入关键词后显示匹配结果。</p></div></details></section><section class="lab-explain"><h2>再看判定</h2><p>${esc(r.decision?.reason||'尚未生成建议')}</p><details><summary>工程 Gate · 展开依据</summary>${(r.judge?.gate_checks||[]).map(g=>`<p>${g.pass?'✓':'×'} ${esc(g.label)} · 实际 ${esc(g.actual)} / 阈值 ${esc(g.threshold)}</p>`).join('')}</details><div class="lab-actions"><button class="lab-primary" onclick="labApplyDialog()">${esc(labActionLabel(r.decision?.action))} →</button><button class="lab-secondary" onclick="labApplyDialog(true)">放弃本轮结果</button></div><p>确认后才写入正式历史；播放和听感记录不会自动晋级版本。</p></section>`;
+}
+function labFilterPairs(query){
+ const host=document.getElementById('labPairSearchResults'),r=labData?.job?.result;if(!host||!r)return;const text=String(query||'').trim().toLowerCase();
+ if(!text){host.innerHTML='<p>输入关键词后显示匹配结果。</p>';return;}
+ const matches=labReviewEntries(r).filter(item=>item.search.includes(text)).slice(0,12);
+ host.innerHTML=matches.length?`<div class="lab-search-results">${matches.map(item=>`<button class="lab-secondary" onclick="labChoosePair('${encodeURIComponent(item.pair.stem)}')">${esc(labPairLabel(item.pair,r.rows||[]))}</button>`).join('')}</div><p>${matches.length===12?'仅显示前 12 条，请继续缩小关键词。':`找到 ${matches.length} 条。`}</p>`:'<p>没有匹配样本。</p>';
+}
+function labChoosePair(encodedStem){const r=labData?.job?.result;if(!r)return;labSelectedPair={run:r.run_id,stem:decodeURIComponent(encodedStem)};labPanel();}
 function labPair(){
  const host=document.getElementById('labPairAudio');if(!host)return;const stem=document.getElementById('labPairSelect').value,r=labData.job.result;
  document.querySelectorAll('audio').forEach(a=>a.pause());
@@ -379,12 +454,12 @@ function labApplyDialog(reject=false){
 function labNewDialog(){if(labSubmitting)return;labDialog('开始一个新实验',`<p>当前实验的已确认历史会归档，未确认结果会清空。TTS 音频与计算缓存保留。</p>`,async()=>{await labPost('/api/loop/new',{});++labPollEpoch;labSignature='';await labRefresh();labOpen('loop','run');});}
 async function labCancel(){try{await labPost('/api/loop/cancel',{});await labRefresh();}catch(e){document.getElementById('labRunFeedback').textContent=e.message;}}
 async function labReport(){
- labDialog('实验报告 · Markdown 原文','<p>报告包含服务端保存的实验记录，范围以原文为准，不仅是当前展开的一轮。</p><div id="labReportContent" role="status">正在读取报告…</div>',async()=>{});
+  labDialog('实验报告','<p>先看结论和轮次摘要；逐样本数据下载 Excel 后筛选。</p><div id="labReportContent" role="status">正在读取报告…</div>',async()=>{});
  const dialog=document.getElementById('labDialog'),content=document.getElementById('labReportContent');
  dialog.classList.add('lab-report-dialog');
  document.getElementById('labDialogCancel').hidden=true;
  document.getElementById('labDialogConfirm').textContent='关闭';
- try{const d=await labGet('/api/loop/report');content.innerHTML=`<pre class="lab-report">${esc(d.markdown)}</pre>`;}
+  try{const d=await labGet('/api/loop/report'),s=d.summary||{},rounds=[...(d.rounds||[])].sort((a,b)=>String(b.time||'').localeCompare(String(a.time||''))),statusLabel=({running:'进行中',review:'待复核',done:'已完成',idle:'待开始'}[s.status]||s.status||'—');content.innerHTML=`<div class="lab-report-summary"><article><span>当前比较</span><strong>${esc(s.baseline||'—')} → ${esc(s.candidate||'—')}</strong></article><article><span>已确认轮次</span><strong>${rounds.length}</strong></article><article><span>工作区状态</span><strong>${esc(statusLabel)}</strong></article></div>${s.recommendation?.version?`<section class="lab-report-callout"><span>跨版本工程推荐</span><h3>${esc(s.recommendation.version)}</h3><p>${esc(s.recommendation.reason||'')}</p></section>`:''}<div class="lab-table-wrap lab-report-rounds"><table><thead><tr><th>轮次</th><th>版本</th><th>常规 ΔPQ</th><th>工程判定</th><th>时间</th></tr></thead><tbody>${rounds.map(r=>`<tr><td>第 ${esc(r.round)} 轮</td><td>${esc(r.baseline)} → ${esc(r.candidate)}</td><td>${labSigned(r.judge?.regular_delta)}</td><td>${esc(r.judge?.verdict||labActionLabel(r.decision?.action))}</td><td>${esc(r.time||'—')}</td></tr>`).join('')||'<tr><td colspan="5">暂无已确认实验</td></tr>'}</tbody></table></div><p class="lab-listening-note">网页保留结论层级，完整逐样本证据和判定说明放在 Excel；Markdown 原文仍可下载归档。</p><div class="lab-actions"><a class="lab-primary" href="/api/loop/report.xlsx">下载 Excel 明细</a><a class="lab-secondary" href="/api/loop/report.md">下载 Markdown 原文</a></div>`;}
  catch(e){content.innerHTML=`<p role="alert">报告读取失败：${esc(e.message)}</p><button class="lab-secondary" onclick="labReport()">重试</button>`;}
 }
 document.addEventListener('play',event=>{if(event.target.tagName==='AUDIO')document.querySelectorAll('audio').forEach(a=>{if(a!==event.target)a.pause();});},true);

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Read-only HTTP smoke test for a running local Signal Desk service."""
+"""Read-only HTTP smoke test for a running local 通话评测实验室 service."""
 
 import json
 import sys

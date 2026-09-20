@@ -1669,7 +1669,7 @@ def load_version_tournament(config=None):
 
 def build_markdown(state):
     cfg = state.get("config") or {}
-    lines = ["# Signal Desk · 版本迭代报告", ""]
+    lines = ["# 通话评测实验室 · 版本迭代报告", ""]
     lines.append(f"- 固定测试矩阵：{(state.get('benchmark') or GOLDEN_BENCHMARK).get('label')}")
     lines.append(f"- 当前基准版本（Baseline）：{state.get('baseline')}")
     lines.append(f"- 本轮待验证版本（Candidate）：{state.get('candidate')}")
@@ -1739,3 +1739,88 @@ def build_markdown(state):
                 )
         lines.append("")
     return "\n".join(lines)
+
+
+def export_report_excel(state, out_path):
+    """Export the decision ledger and full sample evidence as an Excel workbook."""
+    from openpyxl import Workbook
+    from openpyxl.styles import Alignment, Font, PatternFill
+    from openpyxl.utils import get_column_letter
+
+    out_path = Path(out_path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    workbook = Workbook()
+    overview = workbook.active
+    overview.title = "概览"
+    benchmark = state.get("benchmark") or GOLDEN_BENCHMARK
+    summary = state.get("version_summary") or build_version_summary(state)
+    recommendation = summary.get("recommendation") or {}
+    overview_rows = [
+        ("固定测试矩阵", benchmark.get("label")),
+        ("当前基准版本", state.get("baseline")),
+        ("待验证版本", state.get("candidate")),
+        ("状态", state.get("status")),
+        ("结论", state.get("conclusion")),
+        ("跨版本工程推荐", recommendation.get("version")),
+        ("推荐原因", recommendation.get("reason")),
+        ("公平比较样本", summary.get("shared_samples")),
+        ("已确认轮次", len(state.get("rounds") or [])),
+    ]
+    overview.append(["字段", "内容"])
+    for row in overview_rows:
+        overview.append(list(row))
+
+    rounds_sheet = workbook.create_sheet("轮次")
+    rounds_sheet.append(["轮次", "实验 ID", "Run ID", "时间", "基准版本", "候选版本", "常规平均 ΔPQ", "常规 p 值", "极端平均 ΔPQ", "工程判定", "处理动作", "说明"])
+    samples_sheet = workbook.create_sheet("样本明细")
+    samples_sheet.append(["轮次", "实验 ID", "Run ID", "场景", "环境声级 dB", "仿真 SNR dB", "音色", "样本 ID", "当前版本 PQ", "待验证版本 PQ", "新版−当前 ΔPQ", "判读"])
+    scene_by_id = {item["id"]: item for item in channel.NOISE_SCENES}
+    scene_by_label = {item["label"]: item for item in channel.NOISE_SCENES}
+
+    def number(value):
+        try:
+            parsed = float(value)
+            return parsed if math.isfinite(parsed) else None
+        except (TypeError, ValueError):
+            return None
+
+    for round_item in state.get("rounds") or []:
+        judge = round_item.get("judge") or {}
+        decision = round_item.get("decision") or {}
+        rounds_sheet.append([
+            round_item.get("round"), round_item.get("experiment_id"), round_item.get("run_id"), round_item.get("time"),
+            round_item.get("baseline"), round_item.get("candidate"), number(judge.get("regular_delta")),
+            number(judge.get("regular_p")), number(judge.get("extreme_delta")), judge.get("verdict"),
+            decision.get("action"), decision.get("reason") or decision.get("hypothesis"),
+        ])
+        for row in round_item.get("rows") or []:
+            baseline_pq = number(row.get("baseline_pq"))
+            candidate_pq = number(row.get("candidate_pq"))
+            delta = candidate_pq - baseline_pq if baseline_pq is not None and candidate_pq is not None else None
+            scene = scene_by_id.get(row.get("scene_id")) or scene_by_label.get(row.get("noise_label")) or {}
+            verdict = "无可比较数据" if delta is None else "上行" if delta >= 0 else "回退"
+            if row.get("regular") is False:
+                verdict += " · 极端"
+            samples_sheet.append([
+                round_item.get("round"), round_item.get("experiment_id"), round_item.get("run_id"),
+                row.get("noise_label") or row.get("scene_id"), scene.get("level_db"), row.get("snr_db"),
+                row.get("voice_name") or row.get("voice_id"), row.get("stem"), baseline_pq, candidate_pq, delta, verdict,
+            ])
+
+    header_fill = PatternFill("solid", fgColor="252A27")
+    header_font = Font(color="FFFFFF", bold=True)
+    for sheet in workbook.worksheets:
+        sheet.freeze_panes = "A2"
+        sheet.auto_filter.ref = sheet.dimensions
+        for cell in sheet[1]:
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = Alignment(vertical="center")
+        for column_cells in sheet.columns:
+            width = min(max(len(str(cell.value or "")) for cell in column_cells) + 2, 48)
+            sheet.column_dimensions[get_column_letter(column_cells[0].column)].width = max(width, 12)
+        for row in sheet.iter_rows(min_row=2):
+            for cell in row:
+                cell.alignment = Alignment(vertical="top", wrap_text=True)
+    workbook.save(out_path)
+    return out_path

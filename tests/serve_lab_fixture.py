@@ -17,7 +17,7 @@ import numpy as np
 import soundfile as sf
 
 ROOT = Path(__file__).resolve().parents[1]
-SCENES = [("NPARK", "安静 · 公园", 25), ("OOFFICE", "办公室", 15), ("PCAFETER", "咖啡厅", 10), ("PRESTO", "食堂", 5), ("STRAFFIC", "路口 · 交通", 0), ("TMETRO", "地铁 · 高噪", -10)]
+SCENES = [("NPARK", "安静 · 公园", 25, 45), ("OOFFICE", "办公室", 15, 55), ("PCAFETER", "咖啡厅", 10, 70), ("PRESTO", "食堂", 5, 72), ("STRAFFIC", "路口 · 交通", 0, 75), ("TMETRO", "地铁 · 高噪", -10, 90)]
 RESULT = {"status": "ok", "run_id": "fixture-run", "experiment_id": "fixture-experiment", "baseline": "v1", "candidate": "v2", "judge": {"baseline_regular_pq": 6, "candidate_regular_pq": 7, "regular_delta": 1}, "decision": {"action": "accept", "reason": "模拟测试数据，仅用于验证交互"}, "rows": [{"scene_id": "OOFFICE", "noise_label": "办公室", "snr_db": 15, "stem": "fixture-sample", "voice_name": "模拟音色", "baseline_pq": 6, "candidate_pq": 7}], "blind_pairs": [{"stem": "fixture-sample", "noise_label": "办公室"}]}
 
 
@@ -69,12 +69,14 @@ def serve(app_root, port):
                 return self.send({"cohort_id": "fixture-cohort", "points": [{"file": "fixture.wav", "name": "模拟音色", "cluster": 1, "x": 150, "y": 700, "audio_available": True}]})
             if path == "/api/voice/cohorts":
                 return self.send({"cohorts": state["cohorts"]})
+            if path in {"/api/voice/cohorts/fixture-cohort/distribution", "/api/voice/distribution"}:
+                return self.send({"cohort_id": "fixture-cohort", "embedding": {"method": "PCA", "source_dimensions": 21, "dimensions": 3, "axes": ["PC1", "PC2", "PC3"], "explained_variance": [.42, .23, .11]}, "points": [{"file": f"{i}.wav", "name": f"模拟音色{i}", "cluster": i % 4, "x": i/8-1.5, "y": (i%7)/3-1, "z": (i%5)/2-1, "f0_mean": 100+i*4, "f1_mean": 300+i*10, "f2_mean": 1200+i*12, "audio_available": True} for i in range(26)]})
             if path == "/api/voice/cohorts/fixture-cohort/result":
-                return self.send({"status": "ok", "n_clusters": 4, "files": [{"file": f"{i}.wav", "voice_name": f"模拟音色{i}", "cluster": i % 4, "f0_mean": 100+i*4, "f1_mean": 300+i*10} for i in range(26)]})
+                return self.send({"status": "ok", "n_clusters": 4, "files": [{"file": f"{i}.wav", "voice_name": f"模拟音色{i}", "cluster": i % 4, "f0_mean": 100+i*4, "f1_mean": 300+i*10, "f2_mean": 1200+i*12} for i in range(26)]})
             if path == "/api/corpus/templates":
                 return self.send({"templates": []})
             if path == "/api/channel/noise/scenes":
-                return self.send({"scenes": [{"id": i, "label": n, "snr_db": snr, "preview_ready": True, "preview": "fixture.wav"} for i, n, snr in SCENES]})
+                return self.send({"scenes": [{"id": i, "label": n, "snr_db": snr, "level_db": level, "preview_ready": True, "preview": "fixture.wav"} for i, n, snr, level in SCENES]})
             if path == "/api/loop/archive":
                 return self.send({"rounds": []})
             if path == "/api/loop/report":
@@ -82,7 +84,8 @@ def serve(app_root, port):
                 function = next(n for n in ast.parse(source.read_text(encoding="utf-8")).body if isinstance(n, ast.FunctionDef) and n.name == "build_markdown")
                 ns = {"math": math, "GOLDEN_BENCHMARK": {"label": "模拟测试矩阵"}, "build_version_summary": lambda s: {}}
                 exec(compile(ast.Module(body=[function], type_ignores=[]), str(source), "exec"), ns)
-                return self.send({"markdown": ns["build_markdown"]({"rounds": [{**RESULT, "round": 1, "time": "fixture-time"}]})})
+                round_item = {**RESULT, "round": 1, "time": "fixture-time"}
+                return self.send({"summary": {"baseline": "v1", "candidate": "v2", "status": "review", "recommendation": {}}, "rounds": [round_item], "markdown": ns["build_markdown"]({"rounds": [round_item]})})
             if path.startswith("/api/") and ("/audio/" in path or "/preview/" in path):
                 return self.send(audio, "audio/wav")
             if path.startswith("/api/"):

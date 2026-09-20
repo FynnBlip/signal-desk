@@ -1,0 +1,250 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "通话评测实验室 · 运行架构",
+    "locale": "zh-CN",
+    "output": "signal-desk-runtime.html",
+    "animation": "trace",
+    "quality_profile": "showcase",
+    "viewBox": [1380, 820]
+  },
+  "components": [
+    {
+      "id": "operator",
+      "type": "external",
+      "label": "实验人员",
+      "sublabel": "配置 · 试听 · 人工确认",
+      "pos": [50, 80],
+      "size": [160, 72]
+    },
+    {
+      "id": "workbench",
+      "type": "frontend",
+      "label": "本地工作台",
+      "sublabel": "app/lab.html + lab.js",
+      "tag": "Browser :8090",
+      "pos": [280, 80],
+      "size": [180, 72]
+    },
+    {
+      "id": "api",
+      "type": "backend",
+      "label": "FastAPI 服务",
+      "sublabel": "server/main.py · /api/*",
+      "tag": "11 / 12 Providers ready",
+      "pos": [530, 80],
+      "size": [200, 72]
+    },
+    {
+      "id": "corpus",
+      "type": "backend",
+      "label": "01 语料生成",
+      "sublabel": "固定探针 · 覆盖自检",
+      "pos": [45, 330],
+      "size": [150, 76]
+    },
+    {
+      "id": "tts",
+      "type": "backend",
+      "label": "03 TTS 合成",
+      "sublabel": "MiniMax / 可替换 Provider",
+      "pos": [225, 330],
+      "size": [160, 76]
+    },
+    {
+      "id": "voice",
+      "type": "backend",
+      "label": "02 声线聚类",
+      "sublabel": "Praat + MFCC + KMeans",
+      "tag": "C1 · C2 · C3 · C4",
+      "pos": [415, 330],
+      "size": [165, 76]
+    },
+    {
+      "id": "channel",
+      "type": "backend",
+      "label": "04 信道仿真",
+      "sublabel": "六场景噪声 + Opus",
+      "tag": "设定 / 实测 SNR",
+      "pos": [610, 330],
+      "size": [160, 76]
+    },
+    {
+      "id": "denoise",
+      "type": "backend",
+      "label": "05 降噪 DUT",
+      "sublabel": "NoiseReduce / GTCRN / DF3",
+      "tag": "V1 → V4",
+      "pos": [800, 330],
+      "size": [165, 76]
+    },
+    {
+      "id": "evaluate",
+      "type": "backend",
+      "label": "06 客观评测",
+      "sublabel": "AudioBox Aesthetics",
+      "tag": "PQ · ΔPQ",
+      "pos": [995, 330],
+      "size": [160, 76]
+    },
+    {
+      "id": "loop",
+      "type": "security",
+      "label": "07 Gate 与人在环",
+      "sublabel": "规则判定 · 盲听 · 晋级/回滚",
+      "tag": "deterministic-gate-v2",
+      "pos": [1185, 330],
+      "size": [165, 76]
+    },
+    {
+      "id": "evidence",
+      "type": "database",
+      "label": "本地证据与缓存",
+      "sublabel": "data/ · runs · matrix · reports",
+      "tag": "重启可恢复",
+      "pos": [580, 570],
+      "size": [210, 78]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "本机受控实验环境",
+      "wraps": [
+        "workbench",
+        "api",
+        "corpus",
+        "tts",
+        "voice",
+        "channel",
+        "denoise",
+        "evaluate",
+        "loop",
+        "evidence"
+      ],
+      "pad": 28
+    }
+  ],
+  "connections": [
+    {
+      "id": "operator-workbench",
+      "from": "operator",
+      "to": "workbench",
+      "label": "配置 / 试听 / 确认",
+      "variant": "emphasis",
+      "labelAt": [245, 174]
+    },
+    {
+      "id": "workbench-api",
+      "from": "workbench",
+      "to": "api",
+      "label": "HTTP /api/*",
+      "variant": "emphasis"
+    },
+    {
+      "id": "api-corpus",
+      "from": "api",
+      "to": "corpus",
+      "label": "启动实验链路",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [365, 244]
+    },
+    {
+      "id": "corpus-tts",
+      "from": "corpus",
+      "to": "tts",
+      "label": "探针文本",
+      "variant": "emphasis",
+      "labelAt": [210, 430]
+    },
+    {
+      "id": "tts-voice",
+      "from": "tts",
+      "to": "voice",
+      "label": "exam wav",
+      "variant": "emphasis",
+      "labelAt": [400, 430]
+    },
+    {
+      "id": "voice-channel",
+      "from": "voice",
+      "to": "channel",
+      "label": "锁定参考音色",
+      "variant": "emphasis",
+      "labelAt": [595, 430]
+    },
+    {
+      "id": "channel-denoise",
+      "from": "channel",
+      "to": "denoise",
+      "label": "退化音频",
+      "variant": "emphasis",
+      "labelAt": [785, 430]
+    },
+    {
+      "id": "denoise-evaluate",
+      "from": "denoise",
+      "to": "evaluate",
+      "label": "V1–V4 输出",
+      "variant": "emphasis",
+      "labelAt": [980, 480]
+    },
+    {
+      "id": "evaluate-loop",
+      "from": "evaluate",
+      "to": "loop",
+      "label": "真实 PQ 证据",
+      "variant": "emphasis",
+      "labelAt": [1170, 480]
+    },
+    {
+      "id": "loop-api",
+      "from": "loop",
+      "to": "api",
+      "label": "状态 / 判定 / 报告",
+      "variant": "security",
+      "fromSide": "top",
+      "toSide": "right",
+      "labelAt": [1000, 210]
+    },
+    {
+      "id": "loop-evidence",
+      "from": "loop",
+      "to": "evidence",
+      "label": "runs / history / XLSX",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "right",
+      "labelAt": [990, 565]
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "一条主链",
+      "items": [
+        "语料 → TTS → 声线 → 信道 → 降噪 → 评测 → 人工确认",
+        "每个模块也保留独立入口"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "证据可追溯",
+      "items": [
+        "正式分数来自真实模型推理",
+        "缓存、Run、Trace 与报告全部落在本机"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "最终控制权",
+      "items": [
+        "确定性 Gate 限制可执行动作",
+        "LLM 只给建议，晋级或回滚由人确认"
+      ]
+    }
+  ]
+}

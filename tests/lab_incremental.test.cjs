@@ -53,15 +53,15 @@ function harness(){
  }
  {
   const {el,run}=harness();
-  run(`labVoiceData={cohort_id:'c',points:[{file:'a.wav',name:'a',cluster:1,x:100,y:200,audio_available:true}]};labVoiceSelection='a.wav';labVoiceFilter=1;labRenderVoice()`);
+  run(`labVoiceData={cohort_id:'c',embedding:{source_dimensions:21,explained_variance:[.4,.2,.1]},points:[{file:'a.wav',name:'a',cluster:1,x:1,y:2,z:3,f0_mean:100,f1_mean:200,f2_mean:1200,audio_available:true}]};labVoiceSelection='a.wav';labVoiceFilter=1;labRenderVoice()`);
   assert.match(el('voiceSelection').innerHTML,/a.wav/);
   run(`labVoiceData.points=[];labRenderVoice()`);
-  run(`labVoiceData.points=[{file:'b.wav',name:'b',cluster:0,x:100,y:200}];labRenderVoice()`);
+  run(`labVoiceData.points=[{file:'b.wav',name:'b',cluster:0,x:1,y:2,z:3,f0_mean:100,f1_mean:200,f2_mean:1200}];labRenderVoice()`);
   assert.equal(run('labVoiceSelection'),null);
  }
  {
   const {el,run}=harness();
-  run(`labData={status:{},job:{}};labPage='voice';globalThis.cohort='c';labGet=async()=>({cohort_id:cohort,points:[{file:'a.wav',name:'a',cluster:1,x:100,y:200,audio_available:true}]})`);
+  run(`labData={status:{},job:{}};labPage='voice';globalThis.cohort='c';labGet=async()=>({cohort_id:cohort,embedding:{source_dimensions:21},points:[{file:'a.wav',name:'a',cluster:1,x:1,y:2,z:3,f0_mean:100,f1_mean:200,f2_mean:1200,audio_available:true}]})`);
   await run('labPanel()');run('labVoiceFilter=1;labSelectVoice(0)');
   await run('labPanel()');assert.equal(run('labVoiceFilter'),1);assert.match(el('voiceSelection').innerHTML,/a.wav/);
   run('cohort="other"');await run('labPanel()');assert.equal(run('labVoiceSelection'),null);assert.equal(run('labVoiceFilter'),null);

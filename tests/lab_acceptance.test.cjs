@@ -49,6 +49,16 @@ const run=code=>vm.runInContext(code,context);
  assert.match(summary,/>0\.000</);
  assert.match(summary,/1 \/ 2/);
  assert.match(summary,/办公室/);
- assert.doesNotMatch(summary,/咖啡厅/,'empty scenes stay out of the compact history summary');
- console.log('PASS: delayed listening feedback, scene/run selection isolation, offline retained data and recovery, zero vs missing');
+  assert.doesNotMatch(summary,/咖啡厅/,'empty scenes stay out of the compact history summary');
+  const recommended=JSON.parse(run(`JSON.stringify(labRecommendedPairs({
+    rows:[
+      {stem:'a1',scene_id:'NPARK',baseline_pq:5,candidate_pq:5.1},{stem:'a2',scene_id:'NPARK',baseline_pq:5,candidate_pq:4.8},{stem:'a3',scene_id:'NPARK',baseline_pq:5,candidate_pq:5.5},
+      {stem:'b1',scene_id:'OOFFICE',baseline_pq:5,candidate_pq:5.2},{stem:'b2',scene_id:'OOFFICE',baseline_pq:5,candidate_pq:5.3},{stem:'b3',scene_id:'OOFFICE',baseline_pq:5,candidate_pq:5.4}
+    ],
+    blind_pairs:['a1','a2','a3','b1','b2','b3'].map(stem=>({stem}))
+  }))`));
+  assert.equal(recommended.length,4,'listening defaults to at most two samples per populated scene');
+  assert.equal(recommended.filter(item=>item.stem.startsWith('a')).length,2);
+  assert.equal(recommended.filter(item=>item.stem.startsWith('b')).length,2);
+  console.log('PASS: delayed listening feedback, scene/run selection isolation, offline retained data and recovery, zero vs missing');
 })().catch(e=>{console.error(e);process.exitCode=1;});

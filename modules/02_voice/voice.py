@@ -23,6 +23,7 @@ import librosa
 import numpy as np
 import parselmouth
 from sklearn.cluster import KMeans
+from sklearn.decomposition import PCA
 from sklearn.metrics import silhouette_score
 from sklearn.preprocessing import StandardScaler
 
@@ -262,33 +263,79 @@ def load_clusters(csv_path=None):
     return clusters
 
 
-def load_distribution():
-    """Read cached acoustic measurements without generating or analysing audio."""
-    root = PROJECT_ROOT / "data" / "voice"
-    pointer = root / "active_cohort.json"
-    cohort = None
-    if pointer.exists():
-        cohort = json.loads(pointer.read_text(encoding="utf-8")).get("cohort_id")
-        if not cohort or Path(cohort).name != cohort:
-            return {"points": [], "cohort_id": None}
-        root = root / "cohorts" / cohort
+def load_distribution(cohort_id=None):
+    """Project cached 21-D acoustic vectors into a real, read-only 3-D PCA view."""
+    voice_root = PROJECT_ROOT / "data" / "voice"
+    cohort = Path(str(cohort_id)).name if cohort_id else None
+    if cohort_id and cohort != str(cohort_id):
+        return {"points": [], "cohort_id": None}
+    if not cohort:
+        pointer = voice_root / "active_cohort.json"
+        if pointer.exists():
+            cohort = json.loads(pointer.read_text(encoding="utf-8")).get("cohort_id")
+            if not cohort or Path(cohort).name != cohort:
+                return {"points": [], "cohort_id": None}
+    root = voice_root / "cohorts" / cohort if cohort else voice_root
     source = root / "voice_clusters.csv"
-    points = []
+    rows, vectors = [], []
     if source.exists():
         with source.open(encoding="utf-8-sig", newline="") as handle:
             for row in csv.DictReader(handle):
                 try:
-                    x, y = float(row["f0_mean"]), float(row["f1_mean"])
-                    if not np.isfinite(x) or not np.isfinite(y):
+                    vector = [float(row[name]) for name in FEATURE_ORDER[:8]] + [float(row[f"mfcc_{i}"]) for i in range(13)]
+                    if not np.all(np.isfinite(vector)):
                         continue
-                    filename = Path(row["file"]).name
-                    audio = root / "audio" / filename if cohort else PROJECT_ROOT / "data" / "exam" / filename
-                    points.append({"file": filename, "name": row.get("voice_name") or filename,
-                                   "cluster": int(row["cluster"]), "x": x, "y": y,
-                                   "audio_available": audio.is_file()})
-                except (KeyError, ValueError):
+                    rows.append(row)
+                    vectors.append(vector)
+                except (KeyError, TypeError, ValueError):
                     continue
-    return {"points": points, "cohort_id": cohort}
+    if not rows:
+        return {"points": [], "cohort_id": cohort}
+
+    matrix = np.asarray(vectors, dtype=float)
+    model_file = root / "voice_model.pkl"
+    try:
+        scaler = joblib.load(model_file).get("scaler") if model_file.exists() else None
+        scaled = scaler.transform(matrix) if scaler is not None else StandardScaler().fit_transform(matrix)
+    except (OSError, ValueError, TypeError, AttributeError):
+        scaled = StandardScaler().fit_transform(matrix)
+    dimensions = min(3, len(rows), scaled.shape[1])
+    pca = PCA(n_components=dimensions, svd_solver="full")
+    coordinates = pca.fit_transform(scaled)
+    for axis in range(dimensions):
+        loading = pca.components_[axis]
+        if loading[np.argmax(np.abs(loading))] < 0:
+            coordinates[:, axis] *= -1
+    if dimensions < 3:
+        coordinates = np.pad(coordinates, ((0, 0), (0, 3 - dimensions)))
+
+    points = []
+    for row, coordinate in zip(rows, coordinates):
+        filename = Path(row["file"]).name
+        audio = root / "audio" / filename if cohort else PROJECT_ROOT / "data" / "exam" / filename
+        points.append({
+            "file": filename,
+            "name": row.get("voice_name") or filename,
+            "cluster": int(row["cluster"]),
+            "x": round(float(coordinate[0]), 5),
+            "y": round(float(coordinate[1]), 5),
+            "z": round(float(coordinate[2]), 5),
+            "f0_mean": float(row["f0_mean"]),
+            "f1_mean": float(row["f1_mean"]),
+            "f2_mean": float(row["f2_mean"]),
+            "audio_available": audio.is_file(),
+        })
+    return {
+        "points": points,
+        "cohort_id": cohort,
+        "embedding": {
+            "method": "PCA",
+            "source_dimensions": len(FEATURE_ORDER),
+            "dimensions": 3,
+            "axes": ["PC1", "PC2", "PC3"],
+            "explained_variance": [round(float(value), 4) for value in pca.explained_variance_ratio_],
+        },
+    }
 
 
 def analyze_voices(voices_dir, n_clusters=None, output_dir=None):

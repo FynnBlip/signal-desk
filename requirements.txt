@@ -1,4 +1,4 @@
-# Signal Desk 运行依赖（Windows + Python 3.12，CPU 优先）
+# 通话评测实验室 运行依赖（Windows + Python 3.12，CPU 优先）
 fastapi>=0.141.0
 uvicorn[standard]>=0.52.0
 numpy>=2.4.0

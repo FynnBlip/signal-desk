@@ -4,7 +4,7 @@
 > 暖纸墨黑、细线账本、无渐变与无装饰阴影。本文仅作历史回溯。
 
 > 风格名：**Aurora Glass（紫青毛玻璃）**。一次沉淀，任何新项目/新页面直接套用。
-> 来源：ATS Resume Analyzer Dashboard（Figma Community，React+Tailwind v4 映射）+ Signal Desk 手感补充。
+> 来源：ATS Resume Analyzer Dashboard（Figma Community，React+Tailwind v4 映射）+ 通话评测实验室 手感补充。
 > 基调：浅色毛玻璃 + 紫→青品牌渐变 + 轻动效（干净、克制、不炫技）。
 
 ## 0. 怎么复用（三步）
@@ -165,9 +165,9 @@
 3. 图表 Y 轴不截断、Δ 图带零线、单位与 seed 随图标注（数据诚实高于美观）。
 4. 语义色全站唯一：绿=升/达标，红=降/回退，蓝=信息，紫青=品牌。
 
-## 5. 与 Signal Desk 的映射
+## 5. 与 通话评测实验室 的映射
 
-| ATS 原设计 | Signal Desk |
+| ATS 原设计 | 通话评测实验室 |
 |---|---|
 | 侧边栏 6 视图 | 总览 + 01~07 七模块导航 |
 | KPI 四卡 | 语料条数 / 点亮模块数 / 数据规模 / 运行环境 |
