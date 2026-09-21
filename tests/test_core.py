@@ -554,6 +554,10 @@ class LoopGateTests(unittest.TestCase):
                 "rows": [{
                     "scene_id": "OOFFICE", "noise_label": "办公室", "snr_db": 15,
                     "voice_name": "测试音色", "stem": "sample", "baseline_pq": 5.2, "candidate_pq": 5.4,
+                }, {
+                    "scene_id": "OOFFICE", "baseline_pq": None, "candidate_pq": 0,
+                }, {
+                    "scene_id": "OOFFICE", "baseline_pq": 0, "candidate_pq": 0,
                 }],
             }],
         }
@@ -561,9 +565,13 @@ class LoopGateTests(unittest.TestCase):
             path = loop.export_report_excel(state, Path(temp) / "report.xlsx")
             workbook = load_workbook(path, read_only=True)
             self.assertEqual(workbook.sheetnames, ["概览", "轮次", "样本明细"])
-            sample = list(workbook["样本明细"].iter_rows(values_only=True))[1]
+            evidence = list(workbook["样本明细"].iter_rows(values_only=True))
+            self.assertEqual(evidence[0][4], "参考环境声级（约 dB，非实测）")
+            sample = evidence[1]
             self.assertEqual(sample[3:7], ("办公室", 55, 15, "测试音色"))
             self.assertAlmostEqual(sample[10], 0.2)
+            self.assertEqual(evidence[2][8:11], (None, 0, None))
+            self.assertEqual(evidence[3][8:11], (0, 0, 0))
             workbook.close()
 
 

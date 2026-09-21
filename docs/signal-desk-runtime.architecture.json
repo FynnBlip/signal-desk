@@ -32,7 +32,7 @@
       "type": "backend",
       "label": "FastAPI 服务",
       "sublabel": "server/main.py · /api/*",
-      "tag": "11 / 12 Providers ready",
+      "tag": "按本机配置加载 Provider",
       "pos": [530, 80],
       "size": [200, 72]
     },

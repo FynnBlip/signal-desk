@@ -8,6 +8,7 @@ import compileall
 import py_compile
 import re
 import shutil
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -28,6 +29,10 @@ REQUIRED = [
     "app/lab.html",
     "app/lab.js",
     "app/lab.css",
+    "app/assets/runtime-architecture.webm",
+    "app/assets/runtime-architecture.webp",
+    "docs/signal-desk-runtime.html",
+    "docs/signal-desk-runtime.architecture.json",
     "app/insights.css",
     "app/insights.js",
     "app/scenes.css",
@@ -70,6 +75,7 @@ REQUIRED = [
     "tests/lab_workflow.test.cjs",
     "tests/lab_acceptance.test.cjs",
     "tests/lab_incremental.test.cjs",
+    "tests/lab_release.test.cjs",
     "tests/lab_prepare.test.cjs",
     "tests/test_incremental_fixes.py",
     "tests/serve_lab_fixture.py",
@@ -117,12 +123,16 @@ def is_text_candidate(path: Path) -> bool:
 
 
 def iter_release_files(root: Path) -> list[Path]:
-    files = []
-    for rel in REQUIRED + OPTIONAL:
-        path = root / rel
-        if path.is_file():
-            files.append(path)
-    return files
+    # Inspect the actual repository contents, including new, non-ignored files.
+    # Only use this checkout's Git boundary; release copies may live under another repo.
+    if (root / ".git").exists():
+        result = subprocess.run(
+            ["git", "-C", str(root), "ls-files", "--cached", "--others", "--exclude-standard", "-z"],
+            check=True, capture_output=True,
+        )
+        return sorted({root / name for name in result.stdout.decode("utf-8").split("\0") if name and (root / name).is_file()})
+    return sorted(path for path in root.rglob("*") if path.is_file()
+                  and not any(part in SKIP_DIR_NAMES for part in path.relative_to(root).parts))
 
 
 def missing_required(root: Path) -> list[str]:
@@ -171,10 +181,10 @@ def compile_release_copy(root: Path) -> list[str]:
     errors = []
     with tempfile.TemporaryDirectory() as temp:
         dest = Path(temp) / "signal-desk-release"
-        for rel in REQUIRED + OPTIONAL:
-            src = root / rel
-            if not src.is_file():
+        for src in iter_release_files(root):
+            if src.suffix != ".py":
                 continue
+            rel = src.relative_to(root)
             target = dest / rel
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(src, target)

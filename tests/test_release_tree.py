@@ -15,7 +15,9 @@ _spec.loader.exec_module(checker)
 
 class ReleaseTreeTests(unittest.TestCase):
     def test_each_current_entry_asset_is_required(self):
-        for missing in ("app/lab.html", "app/lab.js", "app/lab.css"):
+        for missing in ("app/lab.html", "app/lab.js", "app/lab.css",
+                        "app/assets/runtime-architecture.webm", "app/assets/runtime-architecture.webp",
+                        "docs/signal-desk-runtime.html", "docs/signal-desk-runtime.architecture.json"):
             with self.subTest(missing=missing), tempfile.TemporaryDirectory() as temp:
                 root = Path(temp)
                 for name in checker.REQUIRED:
@@ -34,6 +36,13 @@ class ReleaseTreeTests(unittest.TestCase):
         self.assertIn("LICENSE", report["missing_required"])
         self.assertIn("server/contracts.py", report["missing_required"])
         self.assertIn("app/workbench.js", report["missing_required"])
+
+    def test_scan_includes_new_files_outside_fixed_manifest(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            added = root / "new-doc.md"
+            added.write_text("sk-" + "x" * 24, encoding="utf-8")
+            self.assertIn("new-doc.md: matched generic-sk-token", checker.scan_secrets(root))
 
     def test_current_tree_has_required_source_files(self):
         report = checker.inspect(checker.ROOT, compile_copy=True)

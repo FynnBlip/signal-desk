@@ -1773,7 +1773,7 @@ def export_report_excel(state, out_path):
     rounds_sheet = workbook.create_sheet("轮次")
     rounds_sheet.append(["轮次", "实验 ID", "Run ID", "时间", "基准版本", "候选版本", "常规平均 ΔPQ", "常规 p 值", "极端平均 ΔPQ", "工程判定", "处理动作", "说明"])
     samples_sheet = workbook.create_sheet("样本明细")
-    samples_sheet.append(["轮次", "实验 ID", "Run ID", "场景", "环境声级 dB", "仿真 SNR dB", "音色", "样本 ID", "当前版本 PQ", "待验证版本 PQ", "新版−当前 ΔPQ", "判读"])
+    samples_sheet.append(["轮次", "实验 ID", "Run ID", "场景", "参考环境声级（约 dB，非实测）", "仿真 SNR dB", "音色", "样本 ID", "当前版本 PQ", "待验证版本 PQ", "新版−当前 ΔPQ", "判读"])
     scene_by_id = {item["id"]: item for item in channel.NOISE_SCENES}
     scene_by_label = {item["label"]: item for item in channel.NOISE_SCENES}
 
