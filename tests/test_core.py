@@ -624,9 +624,13 @@ class TraceAndStoreTests(unittest.TestCase):
 
 
 class ProviderRegistryTests(unittest.TestCase):
-    def test_seven_slots_and_provider_contract(self):
+    def test_eight_slots_and_provider_contract(self):
+        """01–07 主链路 + 08 真机采集旁挂模块，全部要能被 ADR-001 自动发现。"""
         items = registry.ProviderRegistry(ROOT / "modules").modules()
-        self.assertEqual(len(items), 7)
+        self.assertEqual([item["id"] for item in items], [
+            "01_corpus", "02_voice", "03_tts", "04_channel",
+            "05_denoise", "06_evaluate", "07_loop", "08_capture",
+        ])
         self.assertTrue(all(item.get("providers") for item in items))
 
 
