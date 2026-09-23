@@ -25,3 +25,16 @@ models/**/*.bin
 
 # 架构图自动化视觉验收产物：本地保留，公开仓库只提交源文件与正式预览资产
 /docs/*.visual-check.*
+
+# 08 真机采集：真人录音、运行态、自签证书一律不入库（data/* 已覆盖 data/real_capture）
+runtime/
+data/**/*.pcm
+data/**/*.wav
+runtime/**/*.pcm
+runtime/**/*.wav
+
+# 本地工具用虚拟环境
+.venv*/
+
+# OMC 会话状态：本地产物
+.omc/
