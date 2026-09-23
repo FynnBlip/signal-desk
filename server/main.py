@@ -20,10 +20,12 @@ from fastapi.responses import FileResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 
 try:
+    from capture_routes import router as capture_router
     from contracts import ChannelRunRequest, EvaluateRunRequest, LoopApplyRequest, LoopListenRequest, LoopRunRequest, VoiceRegressionRequest
     from provider_registry import ProviderRegistry
     from run_store import RunStore
 except ImportError:  # package-style imports used by tests/tooling
+    from server.capture_routes import router as capture_router
     from server.contracts import ChannelRunRequest, EvaluateRunRequest, LoopApplyRequest, LoopListenRequest, LoopRunRequest, VoiceRegressionRequest
     from server.provider_registry import ProviderRegistry
     from server.run_store import RunStore
@@ -1428,10 +1430,23 @@ def workbench_home():
     return FileResponse(PROJECT_ROOT / "app" / "lab.html", media_type="text/html")
 
 
+# 08 真机采集：路由必须先于根静态挂载注册，否则 /api/capture/* 会被 StaticFiles 吞掉。
+# 手机端页面走现有根挂载（/capture.html），因此 capture.js 里的 /capture-worklet.js 无需改路径。
+app.include_router(capture_router)
+
 app.mount("/", StaticFiles(directory=str(PROJECT_ROOT / "app"), html=True), name="app")
 
 
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="127.0.0.1", port=8090)
+    # 默认只绑回环。手机直连请显式 SIGNAL_DESK_HOST=0.0.0.0，且必须同时设置配对令牌，
+    # 否则同一局域网内任何人都能往 /api/capture/* 上传音频（ADR-004 网络接入章节）。
+    host = os.environ.get("SIGNAL_DESK_HOST", "127.0.0.1").strip() or "127.0.0.1"
+    port = int(os.environ.get("SIGNAL_DESK_PORT", "8090"))
+    if host not in ("127.0.0.1", "localhost", "::1") and not os.environ.get("SIGNAL_DESK_CAPTURE_TOKEN", "").strip():
+        raise SystemExit(
+            "拒绝在非回环地址上无令牌启动：请先设置 SIGNAL_DESK_CAPTURE_TOKEN，"
+            "或改用 scripts/serve.py / Tailscale Serve 暴露服务。"
+        )
+    uvicorn.run(app, host=host, port=port)

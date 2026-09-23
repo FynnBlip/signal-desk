@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light">
+<title>Signal Desk · 真机采集</title>
+<style>
+  :root {
+    --paper: #f7f4ee;
+    --paper-2: #fffdf8;
+    --ink: #1d1b17;
+    --ink-2: #55504a;
+    --line: #ddd6c9;
+    --accent: #9a3412;
+    --ok: #1a6b3c;
+    --warn: #8a5a00;
+    --bad: #a51f1f;
+    --radius: 12px;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0; padding: 20px 16px 48px;
+    background: var(--paper); color: var(--ink);
+    font: 16px/1.6 "Noto Serif SC", "Songti SC", Georgia, serif;
+  }
+  h1 { font-size: 20px; margin: 0 0 4px; letter-spacing: .02em; }
+  .sub { color: var(--ink-2); font-size: 13px; margin-bottom: 18px; }
+  .card {
+    background: var(--paper-2); border: 1px solid var(--line);
+    border-radius: var(--radius); padding: 14px; margin-bottom: 14px;
+  }
+  label { display: block; font-size: 12px; color: var(--ink-2); margin: 10px 0 4px; }
+  select, input, button {
+    font: inherit; color: inherit; background: #fff;
+    border: 1px solid var(--line); border-radius: 8px;
+    padding: 10px 12px; width: 100%;
+  }
+  button { background: var(--ink); color: var(--paper-2); border: none; font-weight: 600; }
+  button:disabled { opacity: .4; }
+  button.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); font-weight: 400; }
+  .row { display: flex; gap: 8px; }
+  .row > * { flex: 1; }
+  #guide-text {
+    font-size: 24px; line-height: 1.5; margin: 6px 0 8px;
+    letter-spacing: .03em; white-space: pre-wrap;
+  }
+  #guide-meta { font-size: 12px; color: var(--ink-2); white-space: pre-wrap; }
+  .status {
+    font-size: 13px; padding: 9px 12px; border-radius: 8px;
+    background: #efe9dd; color: var(--ink-2); margin-bottom: 14px; min-height: 20px;
+  }
+  .status.bad { background: #fbe9e9; color: var(--bad); }
+  .warn { font-size: 13px; padding: 10px 12px; border-radius: 8px; margin-bottom: 14px; display: none; }
+  .warn.soft { background: #fdf6e3; color: var(--warn); border: 1px solid #eadfbf; }
+  .warn.fatal { background: #fbe9e9; color: var(--bad); border: 1px solid #e8c9c9; }
+  .meter-wrap { height: 8px; background: #eee7da; border-radius: 4px; overflow: hidden; margin: 12px 0 6px; }
+  #meter { height: 100%; width: 0; background: var(--accent); transition: width .1s linear; }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: var(--ink-2); }
+  .grade { font-weight: 700; font-size: 14px; }
+  .grade.grade_a { color: var(--ok); }
+  .grade.grade_b { color: var(--warn); }
+  .grade.grade_c { color: var(--bad); }
+  #gate { display: none; }
+  #gate code { background: #efe9dd; padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+  ol { padding-left: 20px; font-size: 13px; color: var(--ink-2); }
+  audio { width: 100%; margin-top: 10px; }
+</style>
+</head>
+<body>
+
+<div id="gate" class="card">
+  <h1>需要 HTTPS 才能用麦克风</h1>
+  <p class="sub" id="gate-detail"></p>
+  <p style="font-size:13px;color:var(--ink-2)">浏览器只在<strong>安全上下文</strong>下开放麦克风。三种解法，任选一种：</p>
+  <ol>
+    <li><strong>Tailscale Serve（推荐）</strong>：桌面端执行 <code>tailscale serve https / http://127.0.0.1:8090</code>，手机装 Tailscale 登录同一 tailnet，访问它给的 <code>https://…ts.net</code>。真证书，零折腾，还能远程。</li>
+    <li><strong>本机自签证书</strong>：桌面端跑 <code>python scripts/serve.py</code>，按提示在手机上装一次根证书并开启完全信任。</li>
+    <li><strong>隧道</strong>：Cloudflare Tunnel / ngrok 指向本地端口，拿到真证书的公网地址。</li>
+  </ol>
+  <p style="font-size:13px;color:var(--ink-2)">不想折腾网络时，退回「录音导入」路径：用手机自带录音 App 录 WAV，回到桌面端上传。失去了设备指纹与断档检测，但零门槛。</p>
+</div>
+
+<div id="app">
+  <h1>真机采集</h1>
+  <div class="sub">用手机麦克风或手机连的蓝牙麦克风，采真实人声当作生态效度校验语料。</div>
+
+  <div class="status" id="status">正在初始化…</div>
+  <div class="warn" id="constraint-warning"></div>
+
+  <div class="card">
+    <label for="speaker">说话人代号（别填真名）</label>
+    <input id="speaker" value="SPK-01" autocomplete="off">
+    <label for="route">输入路径（决定这把尺子是谁）</label>
+    <select id="route">
+      <option value="phone_internal">手机内置麦克风</option>
+      <option value="bluetooth_hfp">蓝牙耳机麦克风（HFP，窄带）</option>
+      <option value="bluetooth_le">蓝牙 LE Audio</option>
+      <option value="wired_headset">有线耳麦</option>
+      <option value="usb_mic">USB 麦克风</option>
+      <option value="unknown">不确定</option>
+    </select>
+    <label for="device">实际输入设备</label>
+    <div class="row">
+      <select id="device"></select>
+      <button class="ghost" id="btn-refresh" style="flex:0 0 96px">刷新</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div id="guide-meta">脚本加载中…</div>
+    <div id="guide-text">…</div>
+    <div class="meter-wrap"><div id="meter"></div></div>
+    <div class="mono" id="chunk-stat">已上传 0 段 / 断档 0</div>
+    <div class="mono" id="session-id">尚未建立会话</div>
+    <div class="row" style="margin-top:12px">
+      <button id="btn-record">开始录制</button>
+      <button class="ghost" id="btn-next" style="flex:0 0 96px">跳过</button>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <button class="ghost" id="btn-finalize" disabled>封存这次会话</button>
+    </div>
+    <div class="mono" style="margin-top:8px">已录 <span id="elapsed">0.0s</span></div>
+  </div>
+
+  <div class="card" id="result" style="display:none">
+    <div>采集等级：<span class="grade" id="result-grade"></span></div>
+    <div class="sub" id="result-reason"></div>
+    <div class="mono" id="result-metrics"></div>
+    <audio id="player" controls preload="none"></audio>
+    <p style="font-size:12px;color:var(--ink-2)">
+      只有 grade_a 的会话可以进入版本比较；grade_b 仅作探索试听；grade_c 保留取证但不得使用。
+    </p>
+  </div>
+</div>
+
+<script src="/capture.js"></script>
+</body>
+</html>

@@ -87,6 +87,20 @@ REQUIRED = [
     "docs/ADR-001-插件化架构.md",
     "docs/ADR-002-信道仿真.md",
     "docs/ADR-003-闭环大脑.md",
+    # 08 真机采集
+    "modules/08_capture/capture.py",
+    "modules/08_capture/manifest.py",
+    "server/capture_routes.py",
+    "server/capture_app.py",
+    "app/capture.html",
+    "app/capture.js",
+    "app/capture-worklet.js",
+    "scripts/serve.py",
+    "scripts/verify_capture.py",
+    "scripts/capture_doctor.py",
+    "tests/test_capture_capture.py",
+    "docs/ADR-004-真机采集.md",
+    "docs/验收清单-真机采集.md",
 ]
 
 OPTIONAL = [

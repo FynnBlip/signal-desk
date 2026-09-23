@@ -40,6 +40,7 @@ Loop 是产品的外层结构；语料、声线、TTS、信道、降噪和评测
 | 05 降噪 DUT | wip | GTCRN / DeepFilterNet3 / noisereduce |
 | 06 评测 | wip | AudioBox PQ/PC/CE/CU + ΔPQ；综合分与等级默认关闭 |
 | 外层版本验证 Loop | wip | 当前版本 → 新版本 → Gate/LLM 建议 → 盲听 → 人在环留痕 |
+| 08 真机采集 | wip | 手机 / 蓝牙麦真实人声采集，落盘为 real_device tier；需 HTTPS 安全上下文，见 `docs/ADR-004-真机采集.md` |
 
 > ready = 达到当前验收标准；wip = 有可跑的最小闭环，仍在打磨验收。
 
@@ -60,7 +61,7 @@ Loop 是产品的外层结构；语料、声线、TTS、信道、降噪和评测
 |---|---|
 | `app/` | 前端工作台（HTML，总览 + 各模块下钻） |
 | `server/` | 本地后端（FastAPI，把 modules 挂成 HTTP 接口） |
-| `modules/` | 七个模块，编号是模块标识；实际依赖顺序见下方流程，各自可独立运行 |
+| `modules/` | 八个模块，编号是模块标识；实际依赖顺序见下方流程，各自可独立运行（08 为旁挂，不参与晋级判定）|
 | `data/` | 数据资产，数字唯一来源（红线见 `data/README.md`） |
 | `models/` | 模型权重下载指引（权重不入仓库） |
 | `docs/` | ADR / 设计 token / 口径依据 |
@@ -119,7 +120,9 @@ cd signal-desk
 
 ```bash
 python -m unittest discover -s tests -v
-python scripts/smoke_test.py  # 服务已启动时
+python scripts/smoke_test.py       # 服务已启动时
+python scripts/capture_doctor.py   # 08 真机采集：看这台机器能走哪条接入路径
+python scripts/verify_capture.py   # 08 真机采集：端到端自检，不需要手机
 ```
 
 `bootstrap_demo.py` 生成的是合成音与合成噪声，只用于检查布线，不是语音数据集、基准或质量证据。

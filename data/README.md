@@ -13,6 +13,8 @@ Important trace files:
 - `matrix/channel_runs_v2.csv`: set and measured SNR plus set and measured bitrate.
 - `loop/listening_v1.jsonl`: blinded human A/B judgements.
 - `loop/loop_status.json`: confirmed rounds only; temporary previews stay in memory.
+- `real_capture/capture_runs_v1.csv`: append-only real-device capture trace (32 columns).
+  Audio and manifests stay under `real_capture/sessions/` and never leave this machine.
 
 For a wiring-only demo, run `python scripts/bootstrap_demo.py`. The generated tones and noises
 are synthetic smoke fixtures, not scientific speech data and not evidence for model quality.
